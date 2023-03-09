@@ -2,6 +2,8 @@
 """
 script that generates new features based on simple mathematical operations on a
 dataframe
+
+author: Georg H. Erharter (georg.erharter@ngi.no)
 """
 
 import numpy as np
@@ -62,7 +64,8 @@ class feature_engineer(operations):
 
         # collection of operations to apply to make first level features
         self.transformations = {'log': np.log, 'sqrt': np.sqrt,
-                                'sqr': np.square, 'power_3': self.power_3,
+                                'sqr': np.square, 'exp': np.exp, 
+                                'power_3': self.power_3,
                                 'mult2': self.multiply2,
                                 'mult3': self.multiply3,
                                 'mult10': self.multiply10,
@@ -74,7 +77,7 @@ class feature_engineer(operations):
                          'power': self.power}
         # collection of operations to apply to make third level features
         self.fusions3 = {'plus': self.add_3, 'times': self.multiply_3}
-        # operations that are commutative i.e. a + b = b + a -> redundant
+        # operations that are commutative e.g. a + b = b + a -> redundant
         self.commutative = ['plus', 'times']
 
     def make_first_level_features(self, df, features: list = None,
@@ -185,9 +188,7 @@ if __name__ == '__main__':
     df = fe.make_first_level_features(df, features=['x', 'y'],
                                       operations=['log', 'sqrt'])
     # create second level features of all previous ones
-    #df = fe.make_second_level_features(df)
-    # create third level features of all previous ones
-    df = fe.make_third_level_features(df)
-    # create first level features of prev. created second level features
-    # feature_subset = [f for f in df.columns if '-l2' in f]
-    # df = fe.make_first_level_features(df, features=feature_subset)
+    df = fe.make_second_level_features(df)
+    # create third level features of basic + level 1 features only
+    feature_subset = [f for f in df.columns if '-l2' not in f]
+    df = fe.make_third_level_features(df, features=feature_subset)
