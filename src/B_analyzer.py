@@ -124,35 +124,34 @@ df.to_excel(r'../output/dataset1.xlsx')
 # analysis
 ##########################################
 
-df.dropna(subset='structural complexity', inplace=True)
-print(len(df))
+df_features = df.dropna(subset='structural complexity')
+print(len(df_features))
 base_features = ['set 1 - radius [m]', 'set 1 - radius std [m]',
                  'set 2 - radius [m]', 'set 2 - radius std [m]',
                  'set 3 - radius [m]', 'set 3 - radius std [m]',
                  'random set - radius [m]', 'random set - radius std [m]',
                  'meas. spacing set 1 [m]', 'meas. spacing set 2 [m]',
                  'meas. spacing set 3 [m]',
-                 'avg. RQD', 'avg. P10', #'avg. P20', 'avg. P21',
-                 'Qsys_Jn', 'avg_angle']
+                 'avg. RQD', 'avg. P10', 'Qsys_Jn', 'avg_angle']
 
 fe = feature_engineer()
-df = fe.make_first_level_features(df, features=base_features,
-                                  operations=None)
-l1_features = [f for f in df.columns if '-l1' in f]
-print('level 1 features computed', len(df.columns))
+df_features = fe.make_first_level_features(df_features, features=base_features,
+                                           operations=None)
+l1_features = [f for f in df_features.columns if '-l1' in f]
+print('level 1 features computed', len(df_features.columns))
 
-df = fe.make_second_level_features(df, features=base_features + l1_features)
+df_features = fe.make_second_level_features(df_features, features=base_features + l1_features)
 # drop features that are all 0 or have many NaN
-id_0 = np.where(df.sum(axis=0).values == 0)[0]
-df.drop(columns=df.columns[id_0], inplace=True)
-id_nan = np.where(df.isna().sum().values > 100)[0]
-df.drop(columns=df.columns[id_nan], inplace=True)
-l2_features = [f for f in df.columns if '-l2' in f]
-print('level 2 features computed', len(df.columns))
+id_0 = np.where(df_features.sum(axis=0).values == 0)[0]
+df_features.drop(columns=df_features.columns[id_0], inplace=True)
+id_nan = np.where(df_features.isna().sum().values > 100)[0]
+df_features.drop(columns=df_features.columns[id_nan], inplace=True)
+l2_features = [f for f in df_features.columns if '-l2' in f]
+print('level 2 features computed', len(df_features.columns))
 
-# df = fe.make_third_level_features(df, features=base_features + l1_features)
-# l3_features = [f for f in df.columns if '-l3' in f]
-# print('level 3 features computed', len(df.columns))
+# df_features = fe.make_third_level_features(df_features, features=base_features + l1_features)
+# l3_features = [f for f in df_features.columns if '-l3' in f]
+# print('level 3 features computed', len(df_features.columns))
 
 scores_struct = []
 scores_Jv = []
@@ -162,9 +161,11 @@ n_all_features = len(all_features)
 for i, f in enumerate(all_features):
     if i % 10_000 == 0:
         print(f'{i} of {n_all_features} done')
-    scores_struct.append(utils.assess_fit(df, x='structural complexity', y=f,
+    scores_struct.append(utils.assess_fit(df_features,
+                                          x='structural complexity', y=f,
                                           dropna=True))
-    scores_Jv.append(utils.assess_fit(df, x='Jv measured [discs/m³]', y=f,
+    scores_Jv.append(utils.assess_fit(df_features,
+                                      x='Jv measured [discs/m³]', y=f,
                                       dropna=True))
 
 for scores in [np.array(scores_struct), np.array(scores_Jv)]:
@@ -178,59 +179,30 @@ for scores in [np.array(scores_struct), np.array(scores_Jv)]:
     scores = np.sort(scores)
 
 fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
-ax1.scatter(df['structural complexity'], df['sqrt_avg. P10-l1_times_sqr_avg. RQD-l1-l2'])
+ax1.scatter(df_features['structural complexity'],
+            df_features['sqrt_avg. P10-l1_times_sqr_avg. RQD-l1-l2'])
 ax1.set_xlabel('structural complexity')
 ax1.set_ylabel(feature_max_score)
-ax2.scatter(df['Jv measured [discs/m³]'], df['sqrt_avg. P10-l1_times_sqr_avg. RQD-l1-l2'])
+ax2.scatter(df_features['Jv measured [discs/m³]'],
+            df_features['sqrt_avg. P10-l1_times_sqr_avg. RQD-l1-l2'])
 ax2.set_xlabel('Jv measured [discs/m³]')
 ax2.set_ylabel(feature_max_score)
 plt.tight_layout()
-print(ghjkl)
+# print(ghjkl)
 
 ##########################################
 # plotting
 ##########################################
 
-fig = plt.figure(figsize=(7.87, 7.87))
-
-ax = fig.add_subplot(3, 1, 1)
-ax.scatter(df['Jv measured [discs/m³]'], df['structural complexity'],
-           edgecolor='black', color='grey', alpha=0.5)
-# for i in range(len(df)):
-#     x, y = df['Jv measured [discs/m³]'].iloc[i], df['structural complexity'].iloc[i]
-#     ax.text(x, y, s=df.index[i])
-
-ax.set_ylabel('structural complexity')
-ax.grid(alpha=0.5)
-
-ax = fig.add_subplot(3, 1, 2)
-ax.scatter(df['Jv measured [discs/m³]'], df['avg. RQD'],
-           edgecolor='black', color='grey', alpha=0.5)
-ax.set_ylabel('avg. RQD')
-ax.grid(alpha=0.5)
-
-ax = fig.add_subplot(3, 1, 3)
-ax.scatter(df['Jv measured [discs/m³]'], df['Minkowski'],
-           edgecolor='black', color='grey', alpha=0.5)
-ax.set_ylabel('Minkowski')
-ax.grid(alpha=0.5)
-
-ax.set_xlabel('Jv measured [discs/m³]')
-
-plt.tight_layout()
-plt.savefig(r'../output/data.png', dpi=300)
-plt.close()
-
-
-for file in os.listdir('graphics'):
-    os.remove(fr'../graphics/{file}')
-
+pltr.DEM_FEM_data(df)
 
 pltr.Jv_plot(df, Jv_s=['Jv ISO 14689 [discs/m³]',
                        'Jv Palmstrøm 2005 [discs/m³]',
                        'Jv Sonmez & Ulusay (1999) 1',
                        'Jv Sonmez & Ulusay (1999) 2'])
 
+for file in os.listdir(r'../graphics/scatters/'):
+    os.remove(fr'../graphics/scatters/{file}')
 
 plot_params = ['structural complexity', 'Jv measured [discs/m³]',
                'Jv Sonmez & Ulusay (1999) 1','avg. RQD', 'avg. P10',
@@ -266,5 +238,5 @@ for x, y in list(combinations(plot_params, 2)):
         if y in log_scale_params:
             ax.set_yscale('log')
         plt.tight_layout()
-        plt.savefig(fr'graphics\{params_dict[x]}_{params_dict[y]}.png', dpi=150)
+        plt.savefig(fr'../graphics/scatters/{params_dict[x]}_{params_dict[y]}.png', dpi=150)
         plt.close()

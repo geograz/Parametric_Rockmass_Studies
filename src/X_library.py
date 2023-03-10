@@ -42,6 +42,39 @@ class plotter:
         plt.savefig(r'../graphics/_JVs.png')
         plt.close()
 
+    def DEM_FEM_data(self, df):
+        fig = plt.figure(figsize=(7.87, 7.87))
+
+        ax = fig.add_subplot(3, 1, 1)
+        ax.scatter(df['Jv measured [discs/m³]'], df['structural complexity'],
+                   edgecolor='black', color='grey', alpha=0.5)
+        # for i in range(len(df)):
+        #     x = df['Jv measured [discs/m³]'].iloc[i]
+              # y = df['structural complexity'].iloc[i]
+        #     ax.text(x, y, s=df.index[i])
+
+        ax.set_ylabel('structural complexity')
+        ax.grid(alpha=0.5)
+
+        ax = fig.add_subplot(3, 1, 2)
+        ax.scatter(df['Jv measured [discs/m³]'], df['avg. RQD'],
+                   edgecolor='black', color='grey', alpha=0.5)
+        ax.set_ylabel('avg. RQD')
+        ax.grid(alpha=0.5)
+
+        ax = fig.add_subplot(3, 1, 3)
+        ax.scatter(df['Jv measured [discs/m³]'], df['Minkowski'],
+                   edgecolor='black', color='grey', alpha=0.5)
+        ax.set_ylabel('Minkowski')
+        ax.grid(alpha=0.5)
+
+        ax.set_xlabel('Jv measured [discs/m³]')
+
+        plt.tight_layout()
+        plt.savefig(r'../output/data.png', dpi=300)
+        plt.close()
+
+
 
 class math:
 
