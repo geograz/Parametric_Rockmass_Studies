@@ -64,7 +64,7 @@ class feature_engineer(operations):
 
         # collection of operations to apply to make first level features
         self.transformations = {'log': np.log, 'sqrt': np.sqrt,
-                                'sqr': np.square, 'exp': np.exp, 
+                                'sqr': np.square, 'exp': np.exp,
                                 'power_3': self.power_3,
                                 'mult2': self.multiply2,
                                 'mult3': self.multiply3,
@@ -80,8 +80,19 @@ class feature_engineer(operations):
         # operations that are commutative e.g. a + b = b + a -> redundant
         self.commutative = ['plus', 'times']
 
-    def make_first_level_features(self, df, features: list = None,
-                                  operations: list = None) -> pd.DataFrame:
+    def drop_no_information_cols(self, df: pd.DataFrame,
+                                 nan_threshold: int = 300) -> pd.DataFrame:
+        '''function removes columns from dataframe without information or too
+        many NAN'''
+        id_0 = np.where(df.sum(axis=0).values == 0)[0]
+        df.drop(columns=df.columns[id_0], inplace=True)
+        id_nan = np.where(df.isna().sum().values > nan_threshold)[0]
+        df.drop(columns=df.columns[id_nan], inplace=True)
+        return df
+
+    def make_1st_level_features(self, df, features: list = None,
+                                operations: list = None,
+                                drop_empty: bool = False) -> pd.DataFrame:
         '''function that computes new features based on single features only.
         Unless specified the function computes new features for all columns of
         the dataframe and also uses all possible operations.'''
@@ -100,10 +111,15 @@ class feature_engineer(operations):
                                data=np.array(new_cols).T,
                                index=df.index)
         df = pd.concat([df, df_temp], axis=1)
+
+        if drop_empty is True:
+            df = self.drop_no_information_cols(df)
+
         return df
 
-    def make_second_level_features(self, df, features: list = None,
-                                  operations: list = None) -> pd.DataFrame:
+    def make_2nd_level_features(self, df, features: list = None,
+                                operations: list = None,
+                                drop_empty: bool = False) -> pd.DataFrame:
         '''function that computes new features based on all unique combinations
         of 2 features in the dataframe.
         Unless specified the function computes new features for all columns of
@@ -136,10 +152,15 @@ class feature_engineer(operations):
                                    data=np.array(new_cols).T,
                                    index=df.index)
             df = pd.concat([df, df_temp], axis=1)
+
+            if drop_empty is True:
+                df = self.drop_no_information_cols(df)
+
             return df
 
-    def make_third_level_features(self, df, features: list = None,
-                                  operations: list = None) -> pd.DataFrame:
+    def make_3rd_level_features(self, df, features: list = None,
+                                operations: list = None,
+                                drop_empty: bool = False) -> pd.DataFrame:
         '''function that computes new features based on all unique combinations
         of 3 features in the dataframe.
         Unless specified the function computes new features for all columns of
@@ -173,6 +194,10 @@ class feature_engineer(operations):
                                    data=np.array(new_cols).T,
                                    index=df.index)
             df = pd.concat([df, df_temp], axis=1)
+
+            if drop_empty is True:
+                df = self.drop_no_information_cols(df)
+
             return df
 
 
@@ -185,10 +210,10 @@ if __name__ == '__main__':
     # instantiate feature engineer
     fe = feature_engineer()
     # create first level features
-    df = fe.make_first_level_features(df, features=['x', 'y'],
-                                      operations=['log', 'sqrt'])
+    df = fe.make_1st_level_features(df, features=['x', 'y'],
+                                    operations=['log', 'sqrt'])
     # create second level features of all previous ones
-    df = fe.make_second_level_features(df)
+    df = fe.make_2nd_level_features(df)
     # create third level features of basic + level 1 features only
     feature_subset = [f for f in df.columns if '-l2' not in f]
-    df = fe.make_third_level_features(df, features=feature_subset)
+    df = fe.make_3rd_level_features(df, features=feature_subset)

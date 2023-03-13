@@ -5,6 +5,7 @@ Created on Fri Feb  3 22:48:55 2023
 @author: GEr
 """
 
+from itertools import combinations
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -42,38 +43,93 @@ class plotter:
         plt.savefig(r'../graphics/_JVs.png')
         plt.close()
 
-    def DEM_FEM_data(self, df):
-        fig = plt.figure(figsize=(7.87, 7.87))
+    def DEM_FEM_data(self, df, p_size=4):
+        fig = plt.figure(figsize=(7.87, 5))
 
-        ax = fig.add_subplot(3, 1, 1)
+        ax = fig.add_subplot(2, 1, 1)
         ax.scatter(df['Jv measured [discs/m³]'], df['structural complexity'],
-                   edgecolor='black', color='grey', alpha=0.5)
+                   edgecolor='black', color='firebrick', s=p_size, alpha=0.5)
+        ax.set_xlim(left=0)
+        ax.set_ylabel('structural complexity', color='firebrick')
+        ax.grid(alpha=0.5)
+
+        ax2 = ax.twinx()
+        ax2.scatter(df['Jv measured [discs/m³]'], df['Minkowski'],
+                    edgecolor='black', color='teal', s=p_size, alpha=0.5)
+        ax2.set_ylabel('Minkowski dimension', color='teal')
         # for i in range(len(df)):
         #     x = df['Jv measured [discs/m³]'].iloc[i]
-              # y = df['structural complexity'].iloc[i]
+        #     y = df['structural complexity'].iloc[i]
         #     ax.text(x, y, s=df.index[i])
 
-        ax.set_ylabel('structural complexity')
-        ax.grid(alpha=0.5)
-
-        ax = fig.add_subplot(3, 1, 2)
+        ax = fig.add_subplot(2, 1, 2)
         ax.scatter(df['Jv measured [discs/m³]'], df['avg. RQD'],
-                   edgecolor='black', color='grey', alpha=0.5)
-        ax.set_ylabel('avg. RQD')
+                   edgecolor='black', color='firebrick', s=p_size, alpha=0.5)
+        ax.set_xlim(left=0)
+        ax.set_ylabel('avg. RQD', color='firebrick')
         ax.grid(alpha=0.5)
+        ax2 = ax.twinx()
+        ax2.scatter(df['Jv measured [discs/m³]'], df['avg. P10'],
+                    edgecolor='black', color='teal', s=p_size, alpha=0.5)
+        ax2.set_ylabel('avg. P10', color='teal')
 
-        ax = fig.add_subplot(3, 1, 3)
-        ax.scatter(df['Jv measured [discs/m³]'], df['Minkowski'],
-                   edgecolor='black', color='grey', alpha=0.5)
-        ax.set_ylabel('Minkowski')
-        ax.grid(alpha=0.5)
+        # ax = fig.add_subplot(3, 1, 3)
+        # ax.scatter(df['Jv measured [discs/m³]'], df['avg. P21'],
+        #            edgecolor='black', color='firebrick', s=p_size, alpha=0.5)
+        # ax.set_ylabel('avg. P21', color='firebrick')
+        # # ax2 = ax.twinx()
+        # # ax2.scatter(df['Jv measured [discs/m³]'], df['P32'],
+        # #             edgecolor='black', color='teal', s=p_size, alpha=0.5)
+        # # ax2.set_ylabel('P32', color='teal')
+        # ax.grid(alpha=0.5)
 
         ax.set_xlabel('Jv measured [discs/m³]')
 
         plt.tight_layout()
-        plt.savefig(r'../output/data.png', dpi=300)
+        plt.savefig(r'../output/data.png', dpi=400)
         plt.close()
 
+    def top_x_barplot(self, values: np.array, labels: np.array, title: str,
+                      n_show: int = 10) -> None:
+        idx_sort = np.argsort(values)
+
+        fig, ax = plt.subplots()
+        ax.bar(x=np.arange(n_show), height=values[idx_sort][-n_show:])
+        ax.set_xticks(np.arange(n_show))
+        ax.set_xticklabels(labels[idx_sort][-n_show:],
+                           horizontalalignment='right', rotation=40)
+        ax.grid(alpha=0.5)
+        ax.set_xlabel(f'{n_show} highest values')
+        ax.set_title(title)
+        plt.tight_layout()
+
+    def scatter_combinations(self, df: pd.DataFrame,
+                             plot_params: list) -> None:
+        params_dict = dict(zip(plot_params, list(range(len(plot_params)))))
+
+        log_scale_params = ['avg. app. spacing [m]', 'max block volume [m³]',
+                            'avg. block volume [m³]',
+                            'avg. block edge length [m]',
+                            'n blocks', 'a3', 'a2', 'a1', 'block aspect ratio',
+                            'avg. block surface area [m²]', 'Q_struct',
+                            'block volume computed']
+
+        for x, y in list(combinations(plot_params, 2)):
+            if df[x].isna().sum() == len(df) or df[y].isna().sum() == len(df):
+                pass
+            else:
+                fig, ax = plt.subplots(figsize=(8, 8))
+                ax.scatter(df[x], df[y], alpha=0.5)
+                ax.set_xlabel(x)
+                ax.set_ylabel(y)
+                ax.grid(alpha=0.5)
+                if x in log_scale_params:
+                    ax.set_xscale('log')
+                if y in log_scale_params:
+                    ax.set_yscale('log')
+                plt.tight_layout()
+                plt.savefig(fr'../graphics/scatters/{params_dict[x]}_{params_dict[y]}.png', dpi=150)
+                plt.close()
 
 
 class math:
@@ -125,6 +181,20 @@ class utilities:
             score = r2_score(df_1['x_new'], df_1['y_new'])
         return score
 
+    def assess_fits(self, df: pd.DataFrame, features: list,
+                    targets: list) -> list:
+        scores = []
+
+        n_features = len(features)
+        for t in targets:
+            scores_temp = []
+            for i, f in enumerate(features):
+                if i % 10_000 == 0:
+                    print(f'{i} of {n_features} done')
+                scores_temp.append(self.assess_fit(df, x=t, y=f, dropna=True))
+            scores.append(np.array(scores_temp))
+        return scores
+
 
 class parameters:
 
@@ -170,36 +240,42 @@ class parameters:
     def block_volume_palmstroem(self, S1, S2, S3, alpha, beta, gamma):
         return S1*S2*S3*(np.sin(np.radians(alpha))*np.sin(np.radians(beta))*np.sin(np.radians(gamma)))
 
-    def Qsys_Jn(self, set_1_ratio, set_2_ratio, set_3_ratio, rand_set_ratio,
-                n_tot):
+    def compute_n_disc_sets(self, set_1_ratio: np.array, set_2_ratio: np.array,
+                            set_3_ratio: np.array, rand_set_ratio: np.array,
+                            n_tot: np.array) -> list:
+        '''computes the number of discontinuity sets and the respective "joint
+        number" rating according to the Q-system'''
 
-        Jn_s = []
+        n_s = []  # collection of numbers of discontinuities
+        Jn_s = []  # collection of J_n from the Q-system
         for i in range(len(n_tot)):
             if n_tot[i] < 100:
-                Jn = 1
+                # Massive, no or few joints
+                n, Jn = 0, 1
             elif set_1_ratio[i] > 0.14 and set_2_ratio[i] > 0.14 and set_3_ratio[i] > 0.14 and rand_set_ratio[i] > 0.14:
                 # 3 sets + random
-                Jn = 12
+                n, Jn = 4, 12
             elif set_1_ratio[i] > 0.2 and set_2_ratio[i] > 0.2 and set_3_ratio[i] > 0.2:
                 # 3 sets
-                Jn = 9
+                n, Jn = 3, 9
             elif (set_1_ratio[i] > 0.18 and set_2_ratio[i] > 0.18) or (set_1_ratio[i] > 0.18 and set_3_ratio[i] > 0.18) or (set_2_ratio[i] > 0.18 and set_3_ratio[i] > 0.18) and rand_set_ratio[i] > 0.22:
                 # 2 sets + random
-                Jn = 6
+                n, Jn = 3, 6
             elif (set_1_ratio[i] > 0.25 and set_2_ratio[i] > 0.25) or (set_1_ratio[i] > 0.25 and set_3_ratio[i] > 0.25) or (set_2_ratio[i] > 0.25 and set_3_ratio[i] > 0.25):
                 # 2 sets
-                Jn = 4
+                n, Jn = 2, 4
             elif set_1_ratio[i] > 0.35 or set_2_ratio[i] > 0.35 or set_3_ratio[i] > 0.35 and rand_set_ratio[i] > 0.25:
                 # 1 set + random
-                Jn = 3
+                n, Jn = 2, 3
             elif set_1_ratio[i] > 0.35 or set_2_ratio[i] > 0.35 or set_3_ratio[i] > 0.35 or rand_set_ratio[i] > 0.35:
                 # 1 set
-                Jn = 2
+                n, Jn = 1, 2
             else:
-                Jn = 'Jn na'
+                n, Jn = 'n na', 'Jn na'
+            n_s.append(n)
             Jn_s.append(Jn)
 
-        return Jn_s
+        return n_s, Jn_s
 
     def Minkowski(self, n_boxes, box_sizes):
         N_ = np.log(n_boxes)
