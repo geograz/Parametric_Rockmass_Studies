@@ -12,6 +12,8 @@ import pandas as pd
 from skimage.transform import resize
 from skimage.measure import block_reduce
 from sklearn.metrics import r2_score
+from sklearn.preprocessing import MinMaxScaler
+import warnings
 
 
 class plotter:
@@ -40,7 +42,7 @@ class plotter:
         ax.legend()
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/_JVs.png')
+        plt.savefig(r'../graphics/JVs.png')
         plt.close()
 
     def DEM_FEM_data(self, df, p_size=4):
@@ -160,25 +162,31 @@ class math:
 class utilities:
 
     def __init__(self):
-        pass
+        self.sclr = MinMaxScaler()
 
-    def min_max_scaler(self, x):
-        x = x-x.min()
-        x = x/x.max()
-        return x
+    def cust_dropna(self, df):
+        df.replace([np.inf, -np.inf], np.nan, inplace=True)
+        df.dropna(inplace=True)
+        return df
 
-    def assess_fit(self, df, x, y, dropna=False):
+    def assess_fit(self, df, x, y, dropna=True, scale_indiv=False):
+        warnings.filterwarnings('ignore')
         df_1 = df[[x, y]]
         if dropna is True:
-            df_1.dropna(inplace=True)
-        df_1['x_new'] = self.min_max_scaler(df_1[x])
-        df_1['y_new'] = self.min_max_scaler(df_1[y])
-        if dropna is True:
-            df_1.dropna(inplace=True)
+            df_1 = self.cust_dropna(df_1)
         if len(df_1) < 100:
             score = 2
         else:
-            score = r2_score(df_1['x_new'], df_1['y_new'])
+            df_1['x_new'] = self.sclr.fit_transform(df_1[x].values.reshape(-1, 1))
+            if scale_indiv is False:
+                df_1['y_new'] = self.sclr.transform(df_1[y].values.reshape(-1, 1))
+            else:
+                df_1['y_new'] = self.sclr.fit_transform(df_1[y].values.reshape(-1, 1))
+            df_1 = self.cust_dropna(df_1)
+            if len(df_1) < 100:
+                score = 2
+            else:
+                score = r2_score(df_1['x_new'], df_1['y_new'])
         return score
 
     def assess_fits(self, df: pd.DataFrame, features: list,
@@ -187,12 +195,17 @@ class utilities:
 
         n_features = len(features)
         for t in targets:
+            print(f'compute {n_features} scores for {t}')
+            if t == 'Jv measured [discs/m³]':
+                scale_indiv = False
+            else:
+                scale_indiv = True
             scores_temp = []
             for i, f in enumerate(features):
-                if i % 10_000 == 0:
-                    print(f'{i} of {n_features} done')
-                scores_temp.append(self.assess_fit(df, x=t, y=f, dropna=True))
+                scores_temp.append(self.assess_fit(df, x=t, y=f, dropna=True,
+                                                   scale_indiv=scale_indiv))
             scores.append(np.array(scores_temp))
+
         return scores
 
 

@@ -114,7 +114,7 @@ class feature_engineer(operations):
 
         if drop_empty is True:
             df = self.drop_no_information_cols(df)
-
+        print('level 1 features computed', len(df.columns))
         return df
 
     def make_2nd_level_features(self, df, features: list = None,
@@ -155,7 +155,7 @@ class feature_engineer(operations):
 
             if drop_empty is True:
                 df = self.drop_no_information_cols(df)
-
+            print('level 2 features computed', len(df.columns))
             return df
 
     def make_3rd_level_features(self, df, features: list = None,
@@ -197,7 +197,7 @@ class feature_engineer(operations):
 
             if drop_empty is True:
                 df = self.drop_no_information_cols(df)
-
+            print('level 3 features computed', len(df.columns))
             return df
 
 

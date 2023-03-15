@@ -125,32 +125,29 @@ df.to_excel(r'../output/dataset1.xlsx')
 
 df_features = df.dropna(subset=['structural complexity', 'Minkowski'])
 print(len(df_features))
-base_features = ['set 1 - radius [m]', 'set 2 - radius [m]',
-                 'set 3 - radius [m]', 'random set - radius [m]',
-                 'meas. spacing set 1 [m]', 'meas. spacing set 2 [m]',
-                 'meas. spacing set 3 [m]', 'avg. RQD', 'avg. P10', 'n_discs',
-                 'avg. app. spacing [m]']
+base_features = [#'set 1 - radius [m]', 'set 2 - radius [m]',
+                  #'set 3 - radius [m]', 'random set - radius [m]',
+                  #'meas. spacing set 1 [m]', 'meas. spacing set 2 [m]',
+                  #'meas. spacing set 3 [m]',
+                  'avg. RQD', 'avg. P10', 'n_discs', 'avg. app. spacing [m]']
+                  # 'avg. P20', 'avg. P21', 
 
 df_features = fe.make_1st_level_features(df_features, features=base_features,
-                                         operations=None)
+                                          operations=None, drop_empty=True)
 l1_features = [f for f in df_features.columns if '-l1' in f]
-print('level 1 features computed', len(df_features.columns))
 
 df_features = fe.make_2nd_level_features(df_features,
-                                         features=base_features + l1_features,
-                                         drop_empty=True)
+                                          features=base_features + l1_features,
+                                          drop_empty=True)
 l2_features = [f for f in df_features.columns if '-l2' in f]
-print('level 2 features computed', len(df_features.columns))
 
 df_features = fe.make_3rd_level_features(df_features,
-                                         features=base_features, # + l1_features,
-                                         drop_empty=True)
+                                          features=base_features + l1_features + l2_features,
+                                          drop_empty=True)
 l3_features = [f for f in df_features.columns if '-l3' in f]
-print('level 3 features computed', len(df_features.columns))
-
 
 all_features = base_features + l1_features + l2_features + l3_features
-targets = ['structural complexity', 'Jv measured [discs/m³]', 'Minkowski']
+targets = ['structural complexity']  # , 'structural complexity', 'Jv measured [discs/m³]', 'Minkowski']
 scores = utils.assess_fits(df_features, features=all_features, targets=targets)
 
 for param, scores in zip(targets, scores):
@@ -162,19 +159,59 @@ for param, scores in zip(targets, scores):
     feature_max_score = all_features_new[np.argmax(scores)]
     print(feature_max_score, max(scores))
 
-# print(ghjkl)
+print(ghjkl)
 
 ##########################################
 # plotting
 ##########################################
+
+df['StructC_Erharter'] = np.sqrt(df['avg. P10']) * (2 * df['avg. RQD']) * np.sqrt(df['avg. RQD'])
+df['Jv_Erharter'] = df['avg. P10'] / 2 + df['avg. P10'] * 2 + df['n_discs']
+df['Mink_Erharter'] = (df['avg. app. spacing [m]'] / 10) ** (1/df['avg. P10'])
+
+
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.scatter(df['Jv measured [discs/m³]'], df['structural complexity'],
+           color='grey', edgecolor='black', alpha=0.5)
+ax.grid(alpha=0.5)
+
+ax2 = ax.twinx()
+ax2.scatter(df['Jv measured [discs/m³]'], df['StructC_Erharter'],
+            color='orange', edgecolor='black', alpha=0.5)
+
+ax.set_xlabel('Jv measured [discs/m³]')
+ax.set_ylabel('structural complexity')
+ax2.set_ylabel('structural complexity computed')
+
+plt.tight_layout()
+plt.savefig(r'../graphics/structs.png', dpi=400)
+plt.close()
+
+
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.scatter(df['Jv measured [discs/m³]'], df['Minkowski'],
+           color='grey', edgecolor='black', alpha=0.5)
+ax.grid(alpha=0.5)
+
+ax2 = ax.twinx()
+ax2.scatter(df['Jv measured [discs/m³]'], df['Mink_Erharter'],
+            color='orange', edgecolor='black', alpha=0.5)
+
+ax.set_xlabel('Jv measured [discs/m³]')
+ax.set_ylabel('Minkowski dimension')
+ax2.set_ylabel('Minkowski dimension computed')
+
+plt.tight_layout()
+plt.savefig(r'../graphics/minks.png', dpi=400)
+plt.close()
+
 
 pltr.DEM_FEM_data(df)
 
 pltr.Jv_plot(df, Jv_s=['Jv ISO 14689 [discs/m³]',
                        'Jv Palmstrøm 2005 [discs/m³]',
                        'Jv Sonmez & Ulusay (1999) 1',
-                       'Jv Sonmez & Ulusay (1999) 2',
-                       'Erharter Jv'])
+                       'Jv Sonmez & Ulusay (1999) 2', 'Jv_Erharter'])
 
 for file in os.listdir(r'../graphics/scatters/'):
     os.remove(fr'../graphics/scatters/{file}')
