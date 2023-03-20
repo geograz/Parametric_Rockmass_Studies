@@ -169,6 +169,26 @@ class utilities:
         df.dropna(inplace=True)
         return df
 
+    def convert_inf(self, x):
+        x = np.where((x == np.inf) | (x == -np.inf), np.nan, x)
+        return x
+
+    def assess_fit2(self, x, y, scale_indiv=False):
+        # warnings.filterwarnings('ignore')
+
+        x = self.sclr.fit_transform(x.reshape(-1, 1))
+        if scale_indiv is False:
+            y = self.sclr.transform(y.reshape(-1, 1))
+        else:
+            y = self.sclr.fit_transform(y.reshape(-1, 1))
+        x = self.convert_inf(x)
+        y = self.convert_inf(y)
+        if np.isnan(x).sum() > 0 or np.isnan(y).sum() > 0:
+            pass
+        else:
+            score = r2_score(x, y)
+        return score
+
     def assess_fit(self, df, x, y, dropna=True, scale_indiv=False):
         warnings.filterwarnings('ignore')
         df_1 = df[[x, y]]
@@ -207,6 +227,14 @@ class utilities:
             scores.append(np.array(scores_temp))
 
         return scores
+
+    def get_best_feature(self, scores, features):
+        id_fails = np.where(scores == 2)[0]
+        scores = np.delete(scores, id_fails)
+        all_features_new = np.delete(np.array(features), id_fails)
+
+        feature_max_score = all_features_new[np.argmax(scores)]
+        return feature_max_score, max(scores)
 
 
 class parameters:

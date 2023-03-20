@@ -90,6 +90,28 @@ class feature_engineer(operations):
         df.drop(columns=df.columns[id_nan], inplace=True)
         return df
 
+    def gen_3rd_level_features(self, df, features: list = None,
+                               operations: list = None):
+
+        if features is None:
+            features = df.columns
+        if operations is None:
+            operations = self.fusions3.keys()
+
+        for i, x in enumerate(features):
+            for j, y in enumerate(features):
+                for k, z in enumerate(features):
+                    if i == j or i == k or j == k:  # avoid duplicates
+                        pass
+                    else:
+                        for f in operations:
+                            if j > i or k > i or k > j:
+                                # avoid making duplicate features due to
+                                # commutative operations
+                                pass
+                            else:
+                                yield f'{x}_{f}_{y}_{f}_{z}', self.fusions3[f](df[x], df[y], df[z]).values
+
     def make_1st_level_features(self, df, features: list = None,
                                 operations: list = None,
                                 drop_empty: bool = False) -> pd.DataFrame:
@@ -108,14 +130,15 @@ class feature_engineer(operations):
                 new_headers.append(f'{t}_{f}-l1')
                 new_cols.append(self.transformations[t](df[f]))
         df_temp = pd.DataFrame(columns=new_headers,
-                               data=np.array(new_cols).T,
-                               index=df.index)
+                                data=np.array(new_cols).T,
+                                index=df.index)
         df = pd.concat([df, df_temp], axis=1)
 
         if drop_empty is True:
             df = self.drop_no_information_cols(df)
         print('level 1 features computed', len(df.columns))
         return df
+
 
     def make_2nd_level_features(self, df, features: list = None,
                                 operations: list = None,
@@ -149,14 +172,15 @@ class feature_engineer(operations):
             raise ValueError('duplicate features generated in second level')
         else:
             df_temp = pd.DataFrame(columns=new_headers,
-                                   data=np.array(new_cols).T,
-                                   index=df.index)
+                                    data=np.array(new_cols).T,
+                                    index=df.index)
             df = pd.concat([df, df_temp], axis=1)
 
             if drop_empty is True:
                 df = self.drop_no_information_cols(df)
             print('level 2 features computed', len(df.columns))
             return df
+
 
     def make_3rd_level_features(self, df, features: list = None,
                                 operations: list = None,
@@ -185,20 +209,21 @@ class feature_engineer(operations):
                                 pass
                             else:
                                 new_headers.append(f'{x}_{f}_{y}_{f}_{z}-l3')
-                                new_cols.append(self.fusions3[f](df[x], df[y], df[z]))
+                                # new_cols.append(self.fusions3[f](df[x], df[y], df[z]))
         # check if duplicates were generated
         if len(new_headers) != len(set(new_headers)):
             raise ValueError('duplicate features generated in third level')
         else:
-            df_temp = pd.DataFrame(columns=new_headers,
-                                   data=np.array(new_cols).T,
-                                   index=df.index)
-            df = pd.concat([df, df_temp], axis=1)
+            # df_temp = pd.DataFrame(columns=new_headers,
+            #                        data=np.array(new_cols).T,
+            #                        index=df.index)
+            # df = pd.concat([df, df_temp], axis=1)
 
-            if drop_empty is True:
-                df = self.drop_no_information_cols(df)
-            print('level 3 features computed', len(df.columns))
-            return df
+            # if drop_empty is True:
+            #     df = self.drop_no_information_cols(df)
+            # print('level 3 features computed', len(df.columns))
+            # return df
+            return new_headers
 
 
 # example usage of code
