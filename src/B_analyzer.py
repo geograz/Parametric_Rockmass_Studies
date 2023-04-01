@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+import optuna
 
-from X_feature_engineering import feature_engineer
 from X_library import plotter, math, parameters, utilities
 
 
@@ -18,7 +18,7 @@ pltr = plotter()
 m = math()
 params = parameters()
 utils = utilities()
-fe = feature_engineer()
+
 
 pd.options.mode.chained_assignment = None
 
@@ -31,6 +31,9 @@ df = pd.read_excel(r'../output/dataset.xlsx', index_col='identifier')
 df['avg. P10'] = np.mean(df[['P10 Y', 'P10 X', 'P10 Z']].values, axis=1)
 df['avg. P20'] = np.mean(df[['P20 Y', 'P20 X', 'P20 Z']].values, axis=1)
 df['avg. P21'] = np.mean(df[['P21 Y', 'P21 X', 'P21 Z']].values, axis=1)
+
+df['m_length'] = np.full(len(df), 10)
+df['n_intersections'] = df['avg. P10'] * df['m_length']
 
 # compute different versions of the volumetric joint count acc. to literature
 df['Jv ISO 14689 [discs/m³]'] = params.Jv_ISO14689(
@@ -117,91 +120,24 @@ df['block volume computed'] = params.block_volume_palmstroem(
     beta=df['beta'],
     gamma=df['gamma'])
 
+# save data to excel file
 df.to_excel(r'../output/dataset1.xlsx')
-
-##########################################
-# analysis
-##########################################
-
-base_features = [#'set 1 - radius [m]', 'set 2 - radius [m]',
-                  #'set 3 - radius [m]', 'random set - radius [m]',
-                  #'meas. spacing set 1 [m]', 'meas. spacing set 2 [m]',
-                  #'meas. spacing set 3 [m]',
-                  'avg. RQD', 'avg. P10', 'n_discs', 'avg. app. spacing [m]']
-                  # 'avg. P20', 'avg. P21', 
-
-
-df_features = df.dropna(subset=['structural complexity', 'Minkowski'])
-print(len(df_features))
-
-df_features = fe.make_1st_level_features(df_features, features=base_features,
-                                         operations=None, drop_empty=True)
-l1_features = [f for f in df_features.columns if '-l1' in f]
-
-df_features = fe.make_2nd_level_features(df_features,
-                                         features=base_features + l1_features,
-                                         drop_empty=True)
-l2_features = [f for f in df_features.columns if '-l2' in f]
-
-all_features = base_features + l1_features + l2_features
-targets = ['structural complexity', 'Jv measured [discs/m³]', 'Minkowski']
-scores_struct, scores_Jv, scores_mink = utils.assess_fits(
-    df_features, features=all_features, targets=targets)
-
-struct_best, struct_max = utils.get_best_feature(scores_struct, all_features)
-Jv_best, Jv_max = utils.get_best_feature(scores_Jv, all_features)
-mink_best, mink_max = utils.get_best_feature(scores_mink, all_features)
-
-print('start 3rd level feature check')
-counter = 0
-for l3_f, l3_f_data in fe.gen_3rd_level_features(df_features, all_features):
-
-    l3_f_data = utils.convert_inf(l3_f_data)
-    if np.isnan(l3_f_data).sum() > 0:
-        # pass if data contains nan
-        pass
-    else:
-        s_struct = utils.assess_fit2(df_features['structural complexity'].values,
-                                     y=l3_f_data, scale_indiv=True)
-        if s_struct > struct_max:
-            struct_max = s_struct
-            struct_best = l3_f
-            print(f'highest struct: {struct_best} with {struct_max}')
-
-        s_mink = utils.assess_fit2(df_features['Minkowski'].values,
-                                   y=l3_f_data, scale_indiv=True)
-        if s_mink > mink_max:
-            mink_max = s_mink
-            mink_best = l3_f
-            print(f'highest minkowski: {mink_best} with {mink_max}')
-
-        s_Jv = utils.assess_fit2(df_features['Jv measured [discs/m³]'].values,
-                                 y=l3_f_data, scale_indiv=False)
-        if s_Jv > Jv_max:
-            Jv_max = s_Jv
-            Jv_best = l3_f
-            print(f'highest Jv: {Jv_best} with {Jv_max}')
-
-    if counter % 10_000 == 0:
-        print(f'{counter} 3rd level features checked')
-    counter += 1
-
-print(ghjkl)
 
 ##########################################
 # plotting
 ##########################################
 
-# 0.935524747650611
-df['StructC_Erharter'] = (df['avg. P10'] - np.log(df['avg. app. spacing [m]'])) * (df['avg. RQD'] - 1/df['n_discs']) * (df['avg. RQD'] - 2 * df['avg. P10'])
-
-# 0.9851848687312329
-df['Jv_Erharter'] = df['avg. P10'] / 2 + df['avg. P10'] * 2 + df['n_discs']
-
-df['Jv_Erharter'] = (df['avg. RQD'] ** (df['avg. P10'] / 10)) + df['avg. P10'] / 2 + df['avg. P10'] * 2
-# 0.9840097299783439
+# 0.9551221434310735 - with RQD
+df['StructC_Erharter'] = (df['avg. P10'] - df['avg. app. spacing [m]'] * 3) * (df['avg. RQD'] - df['avg. app. spacing [m]'] ** 3) * (df['avg. RQD'] - 3 * df['avg. P10'])
+# 0.8700423038724875 - with only m_length and n_intersections
+df['StructC_Erharter'] = (np.sqrt(df['m_length']) - np.log(df['n_intersections'])) * (df['n_intersections'] - df['m_length'] ** 3) * (df['m_length'] - np.sqrt(df['n_intersections']))
+# 0.9849419018382843
+df['Jv_Erharter'] = (df['avg. RQD'] ** (df['n_discs'] / 10)) + df['avg. P10'] / 2 + df['avg. P10'] * 2
+# 0.9888669810612596 - with only m_length and n_intersections
+df['Jv_Erharter'] = (np.sqrt(df['m_length']) - np.log(df['n_intersections'])) + (df['n_intersections'] / (df['m_length'] / 2)) + np.sqrt(df['n_intersections'])
+# 0.9842206910387535
 df['Mink_Erharter'] = (df['avg. app. spacing [m]'] / 10) ** (1/df['avg. P10'])
-
+df['Mink_Erharter'] = (df['m_length'] / (10 * df['n_intersections'])) ** (df['m_length'] / df['n_intersections'])
 
 fig, ax = plt.subplots(figsize=(8, 6))
 ax.scatter(df['Jv measured [discs/m³]'], df['structural complexity'],

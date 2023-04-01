@@ -87,7 +87,6 @@ for sample in df.index:
         df['Hausdorff'].loc[sample] = params.Hausdorff(df_boxcount['n boxes'],
                                                        df_boxcount['box edge length [m]'])
         if np.isnan(df['Hausdorff'].loc[sample]) == True:
-            print(sample)
             raise ValueError(f'{sample} has no computed boxes')
     except FileNotFoundError:
         pass

@@ -173,21 +173,23 @@ class utilities:
         x = np.where((x == np.inf) | (x == -np.inf), np.nan, x)
         return x
 
-    def assess_fit2(self, x, y, scale_indiv=False):
-        # warnings.filterwarnings('ignore')
+    def assess_fit2(self, x: np.array, y: np.array,
+                    scale_indiv: bool = False) -> float:
 
-        x = self.sclr.fit_transform(x.reshape(-1, 1))
-        if scale_indiv is False:
-            y = self.sclr.transform(y.reshape(-1, 1))
-        else:
-            y = self.sclr.fit_transform(y.reshape(-1, 1))
-        x = self.convert_inf(x)
         y = self.convert_inf(y)
-        if np.isnan(x).sum() > 0 or np.isnan(y).sum() > 0:
-            pass
-        else:
-            score = r2_score(x, y)
-        return score
+        if np.isnan(y).sum() == 0:
+            x = self.sclr.fit_transform(x.reshape(-1, 1))
+            if scale_indiv is False:
+                y = self.sclr.transform(y.reshape(-1, 1))
+            else:
+                y = self.sclr.fit_transform(y.reshape(-1, 1))
+            x = self.convert_inf(x)
+            y = self.convert_inf(y)
+            if np.isnan(x).sum() > 0 or np.isnan(y).sum() > 0:
+                pass
+            else:
+                score = r2_score(x, y)
+            return score
 
     def assess_fit(self, df, x, y, dropna=True, scale_indiv=False):
         warnings.filterwarnings('ignore')

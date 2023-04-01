@@ -8,6 +8,10 @@ author: Georg H. Erharter (georg.erharter@ngi.no)
 
 import numpy as np
 import pandas as pd
+import optuna
+from tqdm import tqdm
+
+from X_library import utilities
 
 
 class operations:
@@ -54,13 +58,21 @@ class operations:
     def add_3(self, x, y, z):
         return x + y + z
 
+    def minus_3(self, x, y, z):
+        return x - y - z
+
     def multiply_3(self, x, y, z):
         return x * y * z
+
+    def div_3(self, x, y, z):
+        return x / y / z
 
 
 class feature_engineer(operations):
 
     def __init__(self):
+
+        self.utils = utilities()
 
         # collection of operations to apply to make first level features
         self.transformations = {'log': np.log, 'sqrt': np.sqrt,
@@ -76,9 +88,10 @@ class feature_engineer(operations):
                          'times': self.multiply_2, 'dividedby': self.divide_2,
                          'power': self.power}
         # collection of operations to apply to make third level features
-        self.fusions3 = {'plus': self.add_3, 'times': self.multiply_3}
+        self.fusions3 = {'plus': self.add_3, 'times': self.multiply_3,
+                         'minus': self.minus_3, 'dividedby': self.div_3}
         # operations that are commutative e.g. a + b = b + a -> redundant
-        self.commutative = ['plus', 'times']
+        self.commutative = ('plus', 'times')
 
     def drop_no_information_cols(self, df: pd.DataFrame,
                                  nan_threshold: int = 300) -> pd.DataFrame:
@@ -90,27 +103,82 @@ class feature_engineer(operations):
         df.drop(columns=df.columns[id_nan], inplace=True)
         return df
 
+    def gen_3rd_level_structure(self, features, operations, batch_size):
+        n_features = tuple(range(len(features)))
+        n_operations = tuple(range(len(operations)))
+
+        tot_combs = len(features)*len(features)*len(features)*len(operations)
+        print(f'{round(tot_combs / 1_000_000_000, 3)} billion combinations')
+        print(f'{int(tot_combs/batch_size)} files will be saved')
+
+        counter = 0
+        i_s, j_s, k_s, l_s = [], [], [], []
+        while counter < batch_size:
+            for i in n_features:
+                for j in n_features:
+                    for k in n_features:
+                        for l in n_operations:
+                            i_s.append(i)
+                            j_s.append(j)
+                            k_s.append(k)
+                            l_s.append(l)
+                            counter += 1
+                            if counter % batch_size == 0 or counter == tot_combs-1:
+                                df = pd.DataFrame({'feature i': np.array(i_s).astype(np.int16),
+                                                   'feature j': np.array(j_s).astype(np.int16),
+                                                   'feature k': np.array(k_s).astype(np.int16),
+                                                   'operation': np.array(l_s).astype(np.int8)})
+                                df.to_parquet(fr'../data/{counter}.gzip',
+                                              index=False)
+                                i_s.clear()
+                                j_s.clear()
+                                k_s.clear()
+                                l_s.clear()
+
+    def assess_3rd_level_features(self, filename, df, features):
+        df_indices = pd.read_parquet(fr'../data/{filename}.gzip')
+        operations = list(self.fusions3.keys())
+
+        scores = []
+        for i in tqdm(range(len(df_indices))):
+            x, y, z, f = df_indices.iloc[i]
+            x, y, z, f = features[x], features[y], features[z], operations[f]
+            new_feature = self.fusions3[f](df[x], df[y], df[z]).values
+
+            new_feature = self.utils.convert_inf(new_feature)
+            if np.isnan(new_feature).sum() > 0:
+                # pass if data contains nan
+                score = np.nan
+            else:
+                score = self.utils.assess_fit2(
+                    df['structural complexity'].values, y=new_feature,
+                    scale_indiv=True)
+            scores.append(score)
+        df_indices['scores'] = np.array(scores).astype(np.float32)
+        # only save results with a score > R2 = 0.5 to save space
+        df_indices = df_indices[df_indices['scores'] > 0.5]
+        df_indices.to_parquet(fr'../data/{filename}_score.gzip',
+                              index=False)
+
+
     def gen_3rd_level_features(self, df, features: list = None,
                                operations: list = None):
 
         if features is None:
             features = df.columns
         if operations is None:
-            operations = self.fusions3.keys()
+            operations = list(self.fusions3.keys())
 
         for i, x in enumerate(features):
             for j, y in enumerate(features):
                 for k, z in enumerate(features):
-                    if i == j or i == k or j == k:  # avoid duplicates
-                        pass
-                    else:
-                        for f in operations:
-                            if j > i or k > i or k > j:
-                                # avoid making duplicate features due to
-                                # commutative operations
-                                pass
-                            else:
-                                yield f'{x}_{f}_{y}_{f}_{z}', self.fusions3[f](df[x], df[y], df[z]).values
+                    for l, f in enumerate(operations):
+                        if f in self.commutative and j > i or k > i or k > j:
+                            # avoid making duplicate features due to
+                            # commutative operations
+                            pass
+                        else:
+                            yield (i, j, k, l), self.fusions3[f](df[x], df[y], df[z]).values
 
     def make_1st_level_features(self, df, features: list = None,
                                 operations: list = None,
@@ -172,15 +240,14 @@ class feature_engineer(operations):
             raise ValueError('duplicate features generated in second level')
         else:
             df_temp = pd.DataFrame(columns=new_headers,
-                                    data=np.array(new_cols).T,
-                                    index=df.index)
+                                   data=np.array(new_cols).T,
+                                   index=df.index)
             df = pd.concat([df, df_temp], axis=1)
 
             if drop_empty is True:
                 df = self.drop_no_information_cols(df)
             print('level 2 features computed', len(df.columns))
             return df
-
 
     def make_3rd_level_features(self, df, features: list = None,
                                 operations: list = None,
@@ -226,12 +293,47 @@ class feature_engineer(operations):
             return new_headers
 
 
+class optimization():
+
+    def __init__(self, df, features, target_feature):
+        self.fe = feature_engineer()
+        self.utils = utilities()
+
+        self.df = df
+        self.features = features
+        self.target_feature = target_feature
+
+    def optimize_3rd_level(self, trial):
+
+        n_fusion_modes = len(self.fe.fusions3.keys())-1
+        f = trial.suggest_int('fusion_mode', low=0, high=n_fusion_modes)
+        f = list(self.fe.fusions3.keys())[f]
+
+        max_ = len(self.features)-1
+        x = self.features[trial.suggest_int('1st_feature', low=0, high=max_)]
+        y = self.features[trial.suggest_int('2nd_feature', low=0, high=max_)]
+        z = self.features[trial.suggest_int('3rd_feature', low=0, high=max_)]
+
+        new_feature = self.fe.fusions3[f](self.df[x], self.df[y], self.df[z]).values
+
+        if self.target_feature == 'Jv measured [discs/m³]':
+            scale_indiv = False
+        else:
+            scale_indiv = True
+        score = self.utils.assess_fit2(x=self.df[self.target_feature].values,
+                                       y=new_feature, scale_indiv=scale_indiv)
+
+        return score
+
+
 # example usage of code
 if __name__ == '__main__':
+
     # create dummy data
     df = pd.DataFrame({'x': np.random.uniform(0, 1, 100),
                        'y': np.random.uniform(0, 1, 100),
                        'z': np.random.uniform(0, 1, 100)})
+
     # instantiate feature engineer
     fe = feature_engineer()
     # create first level features
