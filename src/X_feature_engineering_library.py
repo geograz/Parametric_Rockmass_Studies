@@ -8,7 +8,6 @@ author: Georg H. Erharter (georg.erharter@ngi.no)
 
 import numpy as np
 import pandas as pd
-import optuna
 from tqdm import tqdm
 
 from X_library import utilities
@@ -135,7 +134,7 @@ class feature_engineer(operations):
                                 k_s.clear()
                                 l_s.clear()
 
-    def assess_3rd_level_features(self, filename, df, features):
+    def assess_3rd_level_features(self, filename, df, features, target):
         df_indices = pd.read_parquet(fr'../data/{filename}.gzip')
         operations = list(self.fusions3.keys())
 
@@ -150,35 +149,24 @@ class feature_engineer(operations):
                 # pass if data contains nan
                 score = np.nan
             else:
-                score = self.utils.assess_fit2(
-                    df['structural complexity'].values, y=new_feature,
-                    scale_indiv=True)
+                if target == 'struct':
+                    score = self.utils.assess_fit2(
+                        df['structural complexity'].values, y=new_feature,
+                        scale_indiv=True)
+                elif target == 'mink':
+                    score = self.utils.assess_fit2(
+                        df['Minkowski'].values, y=new_feature,
+                        scale_indiv=True)
+                elif target == 'Jv':
+                    score = self.utils.assess_fit2(
+                        df['Jv measured [discs/m³]'].values, y=new_feature,
+                        scale_indiv=False)
             scores.append(score)
         df_indices['scores'] = np.array(scores).astype(np.float32)
         # only save results with a score > R2 = 0.5 to save space
         df_indices = df_indices[df_indices['scores'] > 0.5]
-        df_indices.to_parquet(fr'../data/{filename}_score.gzip',
+        df_indices.to_parquet(fr'../data/{filename}_{target}_score.gzip',
                               index=False)
-
-
-    def gen_3rd_level_features(self, df, features: list = None,
-                               operations: list = None):
-
-        if features is None:
-            features = df.columns
-        if operations is None:
-            operations = list(self.fusions3.keys())
-
-        for i, x in enumerate(features):
-            for j, y in enumerate(features):
-                for k, z in enumerate(features):
-                    for l, f in enumerate(operations):
-                        if f in self.commutative and j > i or k > i or k > j:
-                            # avoid making duplicate features due to
-                            # commutative operations
-                            pass
-                        else:
-                            yield (i, j, k, l), self.fusions3[f](df[x], df[y], df[z]).values
 
     def make_1st_level_features(self, df, features: list = None,
                                 operations: list = None,
@@ -198,15 +186,14 @@ class feature_engineer(operations):
                 new_headers.append(f'{t}_{f}-l1')
                 new_cols.append(self.transformations[t](df[f]))
         df_temp = pd.DataFrame(columns=new_headers,
-                                data=np.array(new_cols).T,
-                                index=df.index)
+                               data=np.array(new_cols).T,
+                               index=df.index)
         df = pd.concat([df, df_temp], axis=1)
 
         if drop_empty is True:
             df = self.drop_no_information_cols(df)
         print('level 1 features computed', len(df.columns))
         return df
-
 
     def make_2nd_level_features(self, df, features: list = None,
                                 operations: list = None,
@@ -249,82 +236,6 @@ class feature_engineer(operations):
             print('level 2 features computed', len(df.columns))
             return df
 
-    def make_3rd_level_features(self, df, features: list = None,
-                                operations: list = None,
-                                drop_empty: bool = False) -> pd.DataFrame:
-        '''function that computes new features based on all unique combinations
-        of 3 features in the dataframe.
-        Unless specified the function computes new features for all columns of
-        the dataframe and also uses all possible operations.'''
-        if features is None:
-            features = df.columns
-        if operations is None:
-            operations = self.fusions3.keys()
-
-        new_headers = []
-        new_cols = []
-        for i, x in enumerate(features):
-            for j, y in enumerate(features):
-                for k, z in enumerate(features):
-                    if i == j or i == k or j == k:  # avoid duplicates
-                        pass
-                    else:
-                        for f in operations:
-                            if j > i or k > i or k > j:
-                                # avoid making duplicate features due to
-                                # commutative operations
-                                pass
-                            else:
-                                new_headers.append(f'{x}_{f}_{y}_{f}_{z}-l3')
-                                # new_cols.append(self.fusions3[f](df[x], df[y], df[z]))
-        # check if duplicates were generated
-        if len(new_headers) != len(set(new_headers)):
-            raise ValueError('duplicate features generated in third level')
-        else:
-            # df_temp = pd.DataFrame(columns=new_headers,
-            #                        data=np.array(new_cols).T,
-            #                        index=df.index)
-            # df = pd.concat([df, df_temp], axis=1)
-
-            # if drop_empty is True:
-            #     df = self.drop_no_information_cols(df)
-            # print('level 3 features computed', len(df.columns))
-            # return df
-            return new_headers
-
-
-class optimization():
-
-    def __init__(self, df, features, target_feature):
-        self.fe = feature_engineer()
-        self.utils = utilities()
-
-        self.df = df
-        self.features = features
-        self.target_feature = target_feature
-
-    def optimize_3rd_level(self, trial):
-
-        n_fusion_modes = len(self.fe.fusions3.keys())-1
-        f = trial.suggest_int('fusion_mode', low=0, high=n_fusion_modes)
-        f = list(self.fe.fusions3.keys())[f]
-
-        max_ = len(self.features)-1
-        x = self.features[trial.suggest_int('1st_feature', low=0, high=max_)]
-        y = self.features[trial.suggest_int('2nd_feature', low=0, high=max_)]
-        z = self.features[trial.suggest_int('3rd_feature', low=0, high=max_)]
-
-        new_feature = self.fe.fusions3[f](self.df[x], self.df[y], self.df[z]).values
-
-        if self.target_feature == 'Jv measured [discs/m³]':
-            scale_indiv = False
-        else:
-            scale_indiv = True
-        score = self.utils.assess_fit2(x=self.df[self.target_feature].values,
-                                       y=new_feature, scale_indiv=scale_indiv)
-
-        return score
-
 
 # example usage of code
 if __name__ == '__main__':
@@ -341,6 +252,3 @@ if __name__ == '__main__':
                                     operations=['log', 'sqrt'])
     # create second level features of all previous ones
     df = fe.make_2nd_level_features(df)
-    # create third level features of basic + level 1 features only
-    feature_subset = [f for f in df.columns if '-l2' not in f]
-    df = fe.make_3rd_level_features(df, features=feature_subset)

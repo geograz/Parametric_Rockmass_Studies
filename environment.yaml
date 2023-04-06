@@ -3,12 +3,15 @@ channels:
 - conda-forge
 - defaults
 dependencies:
-- python=3.9
+- python=3.10
 - matplotlib
 - numpy
 - pandas
 - pip
-- spyder-kernels=2.3
+- scikit-image
+- scikit-learn=1.2
+- spyder-kernels=2.4
+- tqdm
 - pip:
- - open3d
- - optuna
+  - open3d==0.17
+  - pyarrow
