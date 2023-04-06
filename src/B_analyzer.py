@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
-import optuna
 
 from X_library import plotter, math, parameters, utilities
 
@@ -127,17 +126,12 @@ df.to_excel(r'../output/dataset1.xlsx')
 # plotting
 ##########################################
 
-# 0.9551221434310735 - with RQD
-df['StructC_Erharter'] = (df['avg. P10'] - df['avg. app. spacing [m]'] * 3) * (df['avg. RQD'] - df['avg. app. spacing [m]'] ** 3) * (df['avg. RQD'] - 3 * df['avg. P10'])
-# 0.8700423038724875 - with only m_length and n_intersections
-df['StructC_Erharter'] = (np.sqrt(df['m_length']) - np.log(df['n_intersections'])) * (df['n_intersections'] - df['m_length'] ** 3) * (df['m_length'] - np.sqrt(df['n_intersections']))
-# 0.9849419018382843
-df['Jv_Erharter'] = (df['avg. RQD'] ** (df['n_discs'] / 10)) + df['avg. P10'] / 2 + df['avg. P10'] * 2
-# 0.9888669810612596 - with only m_length and n_intersections
-df['Jv_Erharter'] = (np.sqrt(df['m_length']) - np.log(df['n_intersections'])) + (df['n_intersections'] / (df['m_length'] / 2)) + np.sqrt(df['n_intersections'])
-# 0.9842206910387535
-df['Mink_Erharter'] = (df['avg. app. spacing [m]'] / 10) ** (1/df['avg. P10'])
-df['Mink_Erharter'] = (df['m_length'] / (10 * df['n_intersections'])) ** (df['m_length'] / df['n_intersections'])
+# 0.9535247683525085 - with only m_length and n_intersections
+df['StructC_Erharter'] = df['n_intersections'] / (np.sqrt(df['n_intersections'])**np.log(df['n_intersections'])) / (1 / df['n_intersections'] ** np.sqrt(df['m_length']))
+# 0.9892848134040833 - with only m_length and n_intersections
+df['Jv_Erharter'] = np.sqrt(df['m_length']) + np.log(df['n_intersections']) / np.log(df['m_length']) + (df['n_intersections'] / 10) * np.log(df['m_length'])
+# 0.9944955706596375 - with only m_length and n_intersections
+df['Mink_Erharter'] = df['n_intersections'] / ((df['m_length']**2) + df['n_intersections']) / (np.log(df['n_intersections']) + np.log(df['m_length']))
 
 fig, ax = plt.subplots(figsize=(8, 6))
 ax.scatter(df['Jv measured [discs/m³]'], df['structural complexity'],
