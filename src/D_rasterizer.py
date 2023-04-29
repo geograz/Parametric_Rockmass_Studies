@@ -5,6 +5,7 @@ Created on Sat Feb  4 09:12:18 2023
 @author: GEr
 """
 
+import gc
 import numpy as np
 import open3d as o3d
 from os import listdir
@@ -14,16 +15,16 @@ from X_library import parameters
 
 params = parameters()
 
-N_SETS_TO_PROCESS = 100  # max number of sets to process in this run
+N_SETS_TO_PROCESS = 300  # max number of sets to process in this run
 
 TOT_BBOX_SIZE = 10  # total bounding box size [m]
 UNIT_BOX_SIZE = 1  # size of a measurement box [m]
-RESOLUTION = 256  # 3D grid resolution
+RESOLUTION = 512  # 3D grid resolution, 256
 voxel_size = TOT_BBOX_SIZE / RESOLUTION  # .05
 color = 1
 DICE_THRESH = 0.75  # threshold of dice coefficient that indicates similarity
 # run code for random- or sequential unprocessed samples -> multiprocessing
-MODE = 'random'  # 'random', 'sequential'
+MODE = 'sequential'  # 'random', 'sequential'
 
 print(f'Rasteranalysis in {MODE} mode')
 # collect all discontinuity ids
@@ -46,6 +47,13 @@ while processed_sets < N_SETS_TO_PROCESS:
     discontinuities = o3d.io.read_triangle_mesh(fr'../combinations/{ids[set_id]}_discontinuities.stl')
     print('\tdiscontinuities loaded')
 
+    boxes_mesh = o3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(
+        input=discontinuities, voxel_size=voxel_size,
+        min_bound=np.array([0, 0, 0]),
+        max_bound=np.array([TOT_BBOX_SIZE, TOT_BBOX_SIZE, TOT_BBOX_SIZE]))
+    del discontinuities
+    print('\tdiscontinuity voxels created')
+
     boxes_all = o3d.geometry.VoxelGrid.create_dense(width=TOT_BBOX_SIZE,
                                                     height=TOT_BBOX_SIZE,
                                                     depth=TOT_BBOX_SIZE,
@@ -54,13 +62,10 @@ while processed_sets < N_SETS_TO_PROCESS:
                                                     color=[color, color, color])
     print('\toverall voxels created')
 
-    boxes_mesh = o3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(
-        input=discontinuities, voxel_size=voxel_size,
-        min_bound=np.array([0, 0, 0]),
-        max_bound=np.array([TOT_BBOX_SIZE, TOT_BBOX_SIZE, TOT_BBOX_SIZE]))
-    print('\tdiscontinuity voxels created')
-
     combined = boxes_mesh + boxes_all
+    del boxes_mesh
+    del boxes_all
+    gc.collect()
 
     # convert voxels to pandas dataframe for further analysis
     points = []
@@ -70,9 +75,12 @@ while processed_sets < N_SETS_TO_PROCESS:
             intersecting = -1  # non intersecting voxel
         else:
             intersecting = 1  # intersecting voxel
-        points.append(np.hstack((coords, intersecting)))
+        points.append(np.hstack((coords, intersecting)).astype(np.float32))
 
     df = pd.DataFrame(columns=['X', 'Y', 'Z', 'inters'], data=np.array(points))
+    del combined
+    del points
+    gc.collect()
     # cut away wrongly created out of bounds voxels
     df = df[(df['X'] >= 0) & (df['X'] <= TOT_BBOX_SIZE)]
     df = df[(df['Y'] >= 0) & (df['Y'] <= TOT_BBOX_SIZE)]
@@ -81,7 +89,10 @@ while processed_sets < N_SETS_TO_PROCESS:
     # convert voxels to grid without XYZ coords
     s_l = int(round(len(df)**(1/3), 0))  # get side length of box
     idx = np.lexsort((df['X'], df['Y'], df['Z'])).reshape(s_l, s_l, s_l)
-    gridded_voxels = df['inters'].values[idx]
+    gridded_voxels = df['inters'].values[idx].astype(np.int8)
+    print(gridded_voxels.dtype)
+    del df
+    gc.collect()
 
     # compute structural complexity acc. to Bagrov et al. (2020)
     c = params.structural_complexity(gridded_voxels, mode='3Dgrid')
@@ -121,6 +132,9 @@ while processed_sets < N_SETS_TO_PROCESS:
     min_ = min(similarity_count)
     mean = np.mean(similarity_count)
     med = np.median(similarity_count)
+    del gridded_voxels
+    del similarity_count
+    gc.collect()
 
     with open(fr'../combinations/{name}', 'w') as f:
         f.write(f'{n_zeros},{max_},{min_},{mean},{med},{c}')
