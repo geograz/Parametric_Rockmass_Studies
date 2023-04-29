@@ -14,12 +14,12 @@ import pandas as pd
 #############################
 # static variables and constants
 
-N_SETS_TO_PROCESS = 300  # max number of sets to process in this run
+N_SETS_TO_PROCESS = 1  # max number of sets to process in this run
 TOT_BBOX_SIZE = 10  # size of full bounding box
 M_BOX_SIZE = 1  # size of initial fractal measurement box
 N_SPLITS_REQUIRED = 4
 # run code for random- or sequential unprocessed samples -> multiprocessing
-MODE = 'random'  # 'random', 'sequential'
+MODE = 'sequential'  # 'random', 'sequential'
 
 #############################
 # main loop

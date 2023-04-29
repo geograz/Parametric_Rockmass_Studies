@@ -344,7 +344,7 @@ class parameters:
                 res /= 2
                 counter += 1
             N = counter
-            # print(N)
+            print(N)
 
         window_sizes = []
         for _ in range(N):
@@ -367,7 +367,6 @@ class parameters:
                             preserve_range=True, order=0)
 
             stack.append(data_c)
-            # print(f'coarsening {i} done')
 
         overlaps = []  # overlaps between images
         for i in range(len(stack)-1):
@@ -383,9 +382,8 @@ class parameters:
             else:
                 raise ValueError('mode not implemented')
             # compute overlap
-            overl = o2.mean() - 0.5 * (o1.mean() + o3.mean())
+            overl = np.abs(o2.mean() - 0.5 * (o1.mean() + o3.mean()))
             overlaps.append(overl)
         # compute structural complexity
-        complexity = np.abs(sum(overlaps))
-        # print(f'C: {complexity}')
+        complexity = sum(overlaps)
         return complexity

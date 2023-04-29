@@ -82,16 +82,16 @@ for col in ['Minkowski', 'Hausdorff', 'similarity n zeros', 'similarity max',
 for sample in df.index:
     try:
         df_boxcount = pd.read_csv(fr'../combinations/{sample}_boxcount.txt')
-        df['Minkowski'].loc[sample] = params.Minkowski(df_boxcount['n boxes'],
-                                                       df_boxcount['box edge length [m]'])
-        df['Hausdorff'].loc[sample] = params.Hausdorff(df_boxcount['n boxes'],
-                                                       df_boxcount['box edge length [m]'])
-        if np.isnan(df['Hausdorff'].loc[sample]) == True:
+        df['Minkowski'].loc[sample] = params.Minkowski(
+            df_boxcount['n boxes'], df_boxcount['box edge length [m]'])
+        df['Hausdorff'].loc[sample] = params.Hausdorff(
+            df_boxcount['n boxes'], df_boxcount['box edge length [m]'])
+        if np.isnan(df['Minkowski'].loc[sample]) == True:
             raise ValueError(f'{sample} has no computed boxes')
     except FileNotFoundError:
         pass
 
-n_processed = len(df) - df['Hausdorff'].isna().sum()
+n_processed = len(df) - df['Minkowski'].isna().sum()
 print(f'{n_processed} / {len(df)} fractal dimensions computed')
 
 ##########################################
@@ -104,7 +104,8 @@ for sample in df.index:
 
         for i, col in enumerate(['similarity n zeros', 'similarity max',
                                  'similarity min', 'similarity mean',
-                                 'similarity median', 'structural complexity']):
+                                 'similarity median',
+                                 'structural complexity']):
             df[col].loc[sample] = content[i]
 
     except FileNotFoundError:

@@ -179,12 +179,12 @@ pltr.Jv_plot(df, Jv_s=['Jv ISO 14689 [discs/m³]',
 for file in os.listdir(r'../graphics/scatters/'):
     os.remove(fr'../graphics/scatters/{file}')
 
-plot_params = ['structural complexity', 'Jv measured [discs/m³]', 'avg. RQD',
-               'avg. P10', 'avg. P20', 'avg. P21', 'P32',
+plot_params = ['structural complexity', 'Minkowski', 'Jv measured [discs/m³]',
+               'avg. RQD', 'P32', 'avg. P10', 'avg. P20', 'avg. P21',
                'avg. app. spacing [m]', 'max block volume [m³]',
                'avg. block volume [m³]', 'avg. block edge length [m]',
                'avg. block surface area [m²]', 'n blocks', 'a3', 'a2', 'a1',
-               'block aspect ratio', 'Q_struct', 'Minkowski', 'avg_angle',
+               'block aspect ratio', 'Q_struct', 'avg_angle',
                'min_angle', 'max_angle', 'std_dipdir', 'std_dip',
                'block volume computed', 'similarity n zeros', 'similarity max',
                'similarity min', 'similarity mean', 'similarity median',

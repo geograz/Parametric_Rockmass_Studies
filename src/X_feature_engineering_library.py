@@ -127,15 +127,16 @@ class feature_engineer(operations):
                                                    'feature j': np.array(j_s).astype(np.int16),
                                                    'feature k': np.array(k_s).astype(np.int16),
                                                    'operation': np.array(l_s).astype(np.int8)})
-                                df.to_parquet(fr'../data/{counter}.gzip',
+                                df.to_parquet(fr'../features/{counter}.gzip',
                                               index=False)
                                 i_s.clear()
                                 j_s.clear()
                                 k_s.clear()
                                 l_s.clear()
 
-    def assess_3rd_level_features(self, filename, df, features, target):
-        df_indices = pd.read_parquet(fr'../data/{filename}.gzip')
+    def assess_3rd_level_features(self, filename, df, features, target,
+                                  savepath):
+        df_indices = pd.read_parquet(fr'../features/{filename}.gzip')
         operations = list(self.fusions3.keys())
 
         scores = []
@@ -165,8 +166,7 @@ class feature_engineer(operations):
         df_indices['scores'] = np.array(scores).astype(np.float32)
         # only save results with a score > R2 = 0.5 to save space
         df_indices = df_indices[df_indices['scores'] > 0.5]
-        df_indices.to_parquet(fr'../data/{filename}_{target}_score.gzip',
-                              index=False)
+        df_indices.to_parquet(savepath, index=False)
 
     def make_1st_level_features(self, df, features: list = None,
                                 operations: list = None,
