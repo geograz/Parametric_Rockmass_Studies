@@ -5,6 +5,7 @@ Created on Fri Mar 31 13:22:39 2023
 @author: GEr
 """
 
+import heapq
 import numpy as np
 import pandas as pd
 from os import listdir
@@ -28,7 +29,9 @@ BASE_FEATURES = [  # 'set 1 - radius [m]', 'set 2 - radius [m]',
                  # 'avg. RQD',
                  # 'avg. P10', 'avg. app. spacing [m]',
                  ]
-TARGET_3RD_LEVEL = 'struct'  # 'struct', 'mink', 'Jv'
+TARGET_3RD_LEVEL = 'Jv'  # 'struct', 'mink', 'Jv'
+MODE = 'evaluation'  # 'structure', 'scores', 'evaluation'
+N_TOP_SCORES = 100
 
 ###########################################
 # data loading and other preprocessing
@@ -40,7 +43,8 @@ utils = utilities()
 
 # load data
 df = pd.read_excel(r'../output/dataset1.xlsx')
-df = df.dropna(subset=['structural complexity', 'Minkowski'])
+if TARGET_3RD_LEVEL == 'struct':
+    df = df.dropna(subset=['structural complexity'])
 print(len(df))
 
 ###########################################
@@ -50,7 +54,7 @@ print(len(df))
 # make first level features
 df = fe.make_1st_level_features(df, features=BASE_FEATURES,
                                 operations=['log', 'sqrt', 'sqr', 'power_3',
-                                            'mult10', 'div10', '1div'],
+                                            'mult10', 'div10', '1div', 'div2'],
                                 drop_empty=True)
 l1_features = [f for f in df.columns if '-l1' in f]
 
@@ -63,43 +67,81 @@ all_features = BASE_FEATURES + l1_features + l2_features
 print(len(all_features))
 
 # check how well all features so far fit to the given targets
-scores_struct, scores_Jv, scores_mink = utils.assess_fits(
-    df, features=all_features, targets=TARGETS)
-struct_best, struct_max = utils.get_best_feature(scores_struct, all_features)
-Jv_best, Jv_max = utils.get_best_feature(scores_Jv, all_features)
-mink_best, mink_max = utils.get_best_feature(scores_mink, all_features)
+# scores_struct, scores_Jv, scores_mink = utils.assess_fits(
+#     df, features=all_features, targets=TARGETS)
+# struct_best, struct_max = utils.get_best_feature(scores_struct, all_features)
+# Jv_best, Jv_max = utils.get_best_feature(scores_Jv, all_features)
+# mink_best, mink_max = utils.get_best_feature(scores_mink, all_features)
 
 ###########################################
-# third level feature generation
+# third level feature processing
 ###########################################
 
-# # generate structure of third level features
-# fe.gen_3rd_level_structure(all_features, list(fe.fusions3.keys()),
-#                             batch_size=BATCH_SIZE)
-
+# generate structure of third level features
+if MODE == 'structure':
+    fe.gen_3rd_level_structure(all_features, list(fe.fusions3.keys()),
+                               batch_size=BATCH_SIZE)
 # compute fitting score for several batches -> can be done in parallel
-for batch in ['10000000', '20000000', '30000000']:
-    print(f'process batch {batch}')
-    fe.assess_3rd_level_features(batch, df, all_features,
-                                  target=TARGET_3RD_LEVEL)
+elif MODE == 'scores':
+    for batch in np.arange(7589653087, step=10000000)[1:]:
+        print(f'process batch {batch}')
+        filename = f'{batch}_{TARGET_3RD_LEVEL}_score.gzip'
+        if filename in listdir(r'../features'):
+            print(f'{filename} already processed -> skip')
+            pass
+        else:
+            print(f'process {filename}')
+            # TODO fix warnings
+            savepath = fr'../features/{filename}'
+            fe.assess_3rd_level_features(batch, df, all_features,
+                                         target=TARGET_3RD_LEVEL,
+                                         savepath=savepath)
+# find highest score
+elif MODE == 'evaluation':
 
-# # find highest score
-# max_score = 0
-# best_comb = None
+    # top_scores = []
+    # for file_path in file_paths:
+    #     df = pd.read_csv(file_path, header=None, names=['score'])
+    #     for score in df['score']:
+    #         if len(top_scores) < N_TOP_SCORES:
+    #             heapq.heappush(top_scores, score)
+    #         elif score > top_scores[0]:
+    #             heapq.heappushpop(top_scores, score)
+    def get_top_n_scores_in_files(n, file_paths):
+        top_scores = []
+        for file_path in file_paths:
+            df = pd.read_parquet(file_path)
+            for idx, row in df.iterrows():
+                score = row['scores']
+                if len(top_scores) < n:
+                    heapq.heappush(top_scores, (score, row))
+                elif score > top_scores[0][0]:
+                    heapq.heappushpop(top_scores, (score, row))
+        return sorted(top_scores, reverse=True, key=lambda x: x[0])
 
-# for file in listdir(r'../data'):
-#     if f'{TARGET_3RD_LEVEL}_score' in file:
-#         df_score = pd.read_parquet(fr'../data/{file}')
-#         if df_score['scores'].max() > max_score:
-#             max_score = df_score['scores'].max()
-#             print(file, max_score)
-#             id_max = np.argmax(df_score['scores'])
-#             best_comb = df_score.iloc[id_max]
+    filepaths = [fr'../features/{f}' for f in listdir(r'../features') if f'{TARGET_3RD_LEVEL}_score' in f]
 
-# feature1 = all_features[int(best_comb['feature i'])]
-# feature2 = all_features[int(best_comb['feature j'])]
-# feature3 = all_features[int(best_comb['feature k'])]
-# operation = list(fe.fusions3.keys())[int(best_comb['operation'])]
+    result = get_top_n_scores_in_files(n=N_TOP_SCORES, file_paths=filepaths)
 
-# print(TARGET_3RD_LEVEL, max_score)
-# print(f'{feature1} {operation} {feature2} {operation} {feature3}')
+    # max_score = 0
+    # best_comb = None
+
+    # for file in listdir(r'../features'):
+    #     if f'{TARGET_3RD_LEVEL}_score' in file:
+    #         df_score = pd.read_parquet(fr'../features/{file}')
+    #         # for score in df_score['scores']:
+    #         #     if len(top_scores) < n:
+
+    #         if df_score['scores'].max() > max_score:
+    #             max_score = df_score['scores'].max()
+    #             print(file, max_score)
+    #             id_max = np.argmax(df_score['scores'])
+    #             best_comb = df_score.iloc[id_max]
+
+    # feature1 = all_features[int(best_comb['feature i'])]
+    # feature2 = all_features[int(best_comb['feature j'])]
+    # feature3 = all_features[int(best_comb['feature k'])]
+    # operation = list(fe.fusions3.keys())[int(best_comb['operation'])]
+
+    # print(TARGET_3RD_LEVEL, max_score)
+    # print(f'{feature1} {operation} {feature2} {operation} {feature3}')
