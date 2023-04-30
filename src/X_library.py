@@ -238,6 +238,19 @@ class utilities:
         feature_max_score = all_features_new[np.argmax(scores)]
         return feature_max_score, max(scores)
 
+    def voxel2grid(self, voxels, RESOLUTION, color):
+        voxels = voxels.get_voxels()
+        indices = np.stack(list(vx.grid_index for vx in voxels)).astype('int16')
+        colors = np.stack(list(vx.color for vx in voxels)).astype('int8')
+        # crop voxels to the bounding box
+        id_valid = np.where((np.min(indices, axis=1) >= 0) &
+                            (np.max(indices, axis=1) < RESOLUTION))[0]
+        indices = indices[id_valid]
+        colors = colors[id_valid]
+        intersecting = np.where(np.sum(colors, axis=1) == color*3, -1, 1)
+        idx = np.lexsort((indices[:,0], indices[:,1], indices[:,2])).reshape(RESOLUTION, RESOLUTION, RESOLUTION)
+        return intersecting[idx]
+
 
 class parameters:
 
@@ -340,11 +353,11 @@ class parameters:
             # compute max. possible split with given data resolution
             res = data.shape[0]
             counter = 0
-            while res >= 8:
+            while res >= 16:
                 res /= 2
                 counter += 1
             N = counter
-            print(N)
+            # print(N)
 
         window_sizes = []
         for _ in range(N):

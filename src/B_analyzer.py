@@ -186,8 +186,9 @@ plot_params = ['structural complexity', 'Minkowski', 'Jv measured [discs/m³]',
                'avg. block surface area [m²]', 'n blocks', 'a3', 'a2', 'a1',
                'block aspect ratio', 'Q_struct', 'avg_angle',
                'min_angle', 'max_angle', 'std_dipdir', 'std_dip',
-               'block volume computed', 'similarity n zeros', 'similarity max',
-               'similarity min', 'similarity mean', 'similarity median',
+               'block volume computed',
+               # 'similarity n zeros', 'similarity max',
+               # 'similarity min', 'similarity mean', 'similarity median',
                'total joints']
 
 pltr.scatter_combinations(df, plot_params)

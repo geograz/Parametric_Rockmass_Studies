@@ -6,7 +6,7 @@ Created on Sun Dec 11 14:11:14 2022
 """
 
 import numpy as np
-from os import listdir
+from os import listdir, remove
 import pandas as pd
 
 from X_library import parameters
@@ -95,23 +95,31 @@ n_processed = len(df) - df['Minkowski'].isna().sum()
 print(f'{n_processed} / {len(df)} fractal dimensions computed')
 
 ##########################################
-# add similarity information where it is computed
+# add similarity and structural complexity information where it is computed
 
 for sample in df.index:
     try:
         with open(fr'../combinations/{sample}_RasterAnalysis.txt', 'r') as f:
-            content = [eval(v) for v in f.read().split(',')]
+            content = []
+            for v in f.read().split(','):
+                if v == 'nan' or v == "nan":
+                    content.append(np.nan)
+                else:
+                    content.append(eval(v))
 
         for i, col in enumerate(['similarity n zeros', 'similarity max',
                                  'similarity min', 'similarity mean',
                                  'similarity median',
                                  'structural complexity']):
-            df[col].loc[sample] = content[i]
+            if col == 'structural complexity' and content[i] == 0:
+                remove(fr'../combinations/{sample}_RasterAnalysis.txt')
+            else:
+                df[col].loc[sample] = content[i]
 
     except FileNotFoundError:
         pass
 
-n_processed = len(df) - df['similarity max'].isna().sum()
+n_processed = len(df) - df['structural complexity'].isna().sum()
 print(f'{n_processed} / {len(df)} similarities computed')
 
 ##########################################
