@@ -15,7 +15,7 @@ from X_library import parameters, utilities
 #############################
 # static variables and constants
 
-N_SETS_TO_PROCESS = 300  # max number of sets to process in this run
+N_SETS_TO_PROCESS = 142  # max number of sets to process in this run
 
 TOT_BBOX_SIZE = 10  # total bounding box size [m]
 UNIT_BOX_SIZE = 1  # size of a measurement box [m]
@@ -24,7 +24,7 @@ voxel_size = TOT_BBOX_SIZE / RESOLUTION  # .05
 color = 1
 DICE_THRESH = 0.75  # threshold of dice coefficient that indicates similarity
 # run code for random- or sequential unprocessed samples -> multiprocessing
-MODE = 'random'  # 'random', 'sequential'
+MODE = 'sequential'  # 'random', 'sequential'
 COMPUTE_SIMILARITY = False  # whether or not self similarity should be computed
 
 #############################

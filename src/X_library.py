@@ -95,10 +95,10 @@ class plotter:
                       n_show: int = 10) -> None:
         idx_sort = np.argsort(values)
 
-        fig, ax = plt.subplots()
-        ax.bar(x=np.arange(n_show), height=values[idx_sort][-n_show:])
+        fig, ax = plt.subplots(figsize=(16, 9))
+        ax.bar(x=np.arange(n_show), height=values[:n_show])
         ax.set_xticks(np.arange(n_show))
-        ax.set_xticklabels(labels[idx_sort][-n_show:],
+        ax.set_xticklabels(labels[:n_show],
                            horizontalalignment='right', rotation=40)
         ax.grid(alpha=0.5)
         ax.set_xlabel(f'{n_show} highest values')
@@ -169,12 +169,15 @@ class utilities:
         df.dropna(inplace=True)
         return df
 
-    def convert_inf(self, x):
-        x = np.where((x == np.inf) | (x == -np.inf), np.nan, x)
-        return x
+    def convert_inf(self, x: np.array) -> np.array:
+        '''function converts all positive and negative infinites to np.nan'''
+        return np.where((x == np.inf) | (x == -np.inf), np.nan, x)
 
     def assess_fit2(self, x: np.array, y: np.array,
                     scale_indiv: bool = False) -> float:
+        '''Function assesses how well two sets of parameters fit to each other.
+        Assessment is done based on the R2 score. Parameters can be scaled to
+        the target or not, depending on the parameter.'''
 
         y = self.convert_inf(y)
         if np.isnan(y).sum() == 0:
@@ -188,6 +191,7 @@ class utilities:
             if np.isnan(x).sum() > 0 or np.isnan(y).sum() > 0:
                 pass
             else:
+                warnings.filterwarnings('ignore')
                 score = r2_score(x, y)
             return score
 
@@ -239,6 +243,8 @@ class utilities:
         return feature_max_score, max(scores)
 
     def voxel2grid(self, voxels, RESOLUTION, color):
+        '''function converts an open3d voxel grid into a structured 3D raster
+        numpy array'''
         voxels = voxels.get_voxels()
         indices = np.stack(list(vx.grid_index for vx in voxels)).astype('int16')
         colors = np.stack(list(vx.color for vx in voxels)).astype('int8')

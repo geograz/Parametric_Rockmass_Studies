@@ -162,6 +162,12 @@ class feature_engineer(operations):
                     score = self.utils.assess_fit2(
                         df['Jv measured [discs/m³]'].values, y=new_feature,
                         scale_indiv=False)
+                elif target == 'P32':
+                    score = self.utils.assess_fit2(
+                        df['P32'].values, y=new_feature,
+                        scale_indiv=False)
+                else:
+                    raise ValueError(f'{target} as target not available!')
             scores.append(score)
         df_indices['scores'] = np.array(scores).astype(np.float32)
         # only save results with a score > R2 = 0.5 to save space
@@ -235,6 +241,31 @@ class feature_engineer(operations):
                 df = self.drop_no_information_cols(df)
             print('level 2 features computed', len(df.columns))
             return df
+
+    def get_top_n_scores_in_files(self, n, file_paths):
+        '''function iterates files with scores and only saves the top n scores
+        and combinations for further analyses.
+        original function made by ChatGPT'''
+        top_scores = []
+        for file_path in file_paths:
+            df = pd.read_parquet(file_path)
+            for idx, row in df.iterrows():
+                score = row['scores']
+                if len(top_scores) < n:
+                    top_scores.append((score, row))
+                    top_scores.sort(reverse=True, key=lambda x: x[0])
+                elif score > top_scores[-1][0]:
+                    top_scores[-1] = (score, row)
+                    top_scores.sort(reverse=True, key=lambda x: x[0])
+        return [x[1] for x in top_scores]
+
+    def decode_combination(self, combination: pd.Series, all_features: list):
+        f1 = all_features[int(combination['feature i'])]
+        f2 = all_features[int(combination['feature j'])]
+        f3 = all_features[int(combination['feature k'])]
+        operation = list(self.fusions3.keys())[int(combination['operation'])]
+        comb_string = f'{f1} {operation} {f2} {operation} {f3}'
+        return comb_string
 
 
 # example usage of code

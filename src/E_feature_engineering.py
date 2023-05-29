@@ -5,12 +5,11 @@ Created on Fri Mar 31 13:22:39 2023
 @author: GEr
 """
 
-import heapq
 import numpy as np
 import pandas as pd
 from os import listdir
 
-from X_library import utilities
+from X_library import utilities, plotter
 from X_feature_engineering_library import feature_engineer
 
 
@@ -19,7 +18,8 @@ from X_feature_engineering_library import feature_engineer
 ###########################################
 
 BATCH_SIZE = 10_000_000  # batch size for the third level feature analysis
-TARGETS = ['structural complexity', 'Jv measured [discs/m³]', 'Minkowski']
+TARGETS = ['structural complexity', 'Jv measured [discs/m³]', 'Minkowski',
+           'P32']
 BASE_FEATURES = [  # 'set 1 - radius [m]', 'set 2 - radius [m]',
                  # 'set 3 - radius [m]', 'random set - radius [m]',
                  # 'meas. spacing set 1 [m]', 'meas. spacing set 2 [m]',
@@ -29,9 +29,9 @@ BASE_FEATURES = [  # 'set 1 - radius [m]', 'set 2 - radius [m]',
                  # 'avg. RQD',
                  # 'avg. P10', 'avg. app. spacing [m]',
                  ]
-TARGET_3RD_LEVEL = 'Jv'  # 'struct', 'mink', 'Jv'
+TARGET_3RD_LEVEL = 'Jv'  # 'struct', 'mink', 'Jv', 'P32'
 MODE = 'evaluation'  # 'structure', 'scores', 'evaluation'
-N_TOP_SCORES = 100
+N_TOP_SCORES = 20
 
 ###########################################
 # data loading and other preprocessing
@@ -40,11 +40,10 @@ N_TOP_SCORES = 100
 # instantiation
 fe = feature_engineer()
 utils = utilities()
+pltr = plotter()
 
 # load data
 df = pd.read_excel(r'../output/dataset1.xlsx')
-if TARGET_3RD_LEVEL == 'struct':
-    df = df.dropna(subset=['structural complexity'])
 print(len(df))
 
 ###########################################
@@ -66,24 +65,27 @@ l2_features = [f for f in df.columns if '-l2' in f]
 all_features = BASE_FEATURES + l1_features + l2_features
 print(len(all_features))
 
-# check how well all features so far fit to the given targets
-# scores_struct, scores_Jv, scores_mink = utils.assess_fits(
+# # check how well all features so far fit to the given targets
+# scores_struct, scores_Jv, scores_mink, scores_P32 = utils.assess_fits(
 #     df, features=all_features, targets=TARGETS)
 # struct_best, struct_max = utils.get_best_feature(scores_struct, all_features)
 # Jv_best, Jv_max = utils.get_best_feature(scores_Jv, all_features)
 # mink_best, mink_max = utils.get_best_feature(scores_mink, all_features)
+# P32_best, P32_max = utils.get_best_feature(scores_P32, all_features)
+
+# print(f'struct: {round(struct_max, 3)}, Jv: {round(Jv_max, 3)}, Mink: {round(mink_max, 3)}, P32: {round(P32_max, 3)}')
 
 ###########################################
 # third level feature processing
 ###########################################
 
-# generate structure of third level features
+# generate all possible combinations of third level features
 if MODE == 'structure':
     fe.gen_3rd_level_structure(all_features, list(fe.fusions3.keys()),
                                batch_size=BATCH_SIZE)
 # compute fitting score for several batches -> can be done in parallel
 elif MODE == 'scores':
-    for batch in np.arange(7589653087, step=10000000)[1:]:
+    for batch in np.arange(90000000, 1000000000, step=10_000_000)[0:]:
         print(f'process batch {batch}')
         filename = f'{batch}_{TARGET_3RD_LEVEL}_score.gzip'
         if filename in listdir(r'../features'):
@@ -91,57 +93,24 @@ elif MODE == 'scores':
             pass
         else:
             print(f'process {filename}')
-            # TODO fix warnings
             savepath = fr'../features/{filename}'
             fe.assess_3rd_level_features(batch, df, all_features,
                                          target=TARGET_3RD_LEVEL,
                                          savepath=savepath)
-# find highest score
+# find best performing combinations of parameters
 elif MODE == 'evaluation':
-
-    # top_scores = []
-    # for file_path in file_paths:
-    #     df = pd.read_csv(file_path, header=None, names=['score'])
-    #     for score in df['score']:
-    #         if len(top_scores) < N_TOP_SCORES:
-    #             heapq.heappush(top_scores, score)
-    #         elif score > top_scores[0]:
-    #             heapq.heappushpop(top_scores, score)
-    def get_top_n_scores_in_files(n, file_paths):
-        top_scores = []
-        for file_path in file_paths:
-            df = pd.read_parquet(file_path)
-            for idx, row in df.iterrows():
-                score = row['scores']
-                if len(top_scores) < n:
-                    heapq.heappush(top_scores, (score, row))
-                elif score > top_scores[0][0]:
-                    heapq.heappushpop(top_scores, (score, row))
-        return sorted(top_scores, reverse=True, key=lambda x: x[0])
 
     filepaths = [fr'../features/{f}' for f in listdir(r'../features') if f'{TARGET_3RD_LEVEL}_score' in f]
 
-    result = get_top_n_scores_in_files(n=N_TOP_SCORES, file_paths=filepaths)
+    result = fe.get_top_n_scores_in_files(n=N_TOP_SCORES, file_paths=filepaths)
 
-    # max_score = 0
-    # best_comb = None
+    best_comb = result[0]
 
-    # for file in listdir(r'../features'):
-    #     if f'{TARGET_3RD_LEVEL}_score' in file:
-    #         df_score = pd.read_parquet(fr'../features/{file}')
-    #         # for score in df_score['scores']:
-    #         #     if len(top_scores) < n:
+    best_comb_equation = fe.decode_combination(best_comb, all_features)
 
-    #         if df_score['scores'].max() > max_score:
-    #             max_score = df_score['scores'].max()
-    #             print(file, max_score)
-    #             id_max = np.argmax(df_score['scores'])
-    #             best_comb = df_score.iloc[id_max]
+    print(TARGET_3RD_LEVEL, best_comb['scores'])
+    print(best_comb_equation)
 
-    # feature1 = all_features[int(best_comb['feature i'])]
-    # feature2 = all_features[int(best_comb['feature j'])]
-    # feature3 = all_features[int(best_comb['feature k'])]
-    # operation = list(fe.fusions3.keys())[int(best_comb['operation'])]
-
-    # print(TARGET_3RD_LEVEL, max_score)
-    # print(f'{feature1} {operation} {feature2} {operation} {feature3}')
+    pltr.top_x_barplot(values=[r['scores'] for r in result],
+                       labels=[fe.decode_combination(r, all_features) for r in result],
+                       title='test')
