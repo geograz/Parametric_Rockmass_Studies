@@ -14,23 +14,20 @@ import pandas as pd
 #############################
 # static variables and constants
 
-N_SETS_TO_PROCESS = 1  # max number of sets to process in this run
+N_SETS_TO_PROCESS = 400  # max number of sets to process in this run
 TOT_BBOX_SIZE = 10  # size of full bounding box
-M_BOX_SIZE = 1  # size of initial fractal measurement box
-N_SPLITS_REQUIRED = 4
 # run code for random- or sequential unprocessed samples -> multiprocessing
-MODE = 'sequential'  # 'random', 'sequential'
+MODE = 'random'  # 'random', 'sequential'
 
 #############################
 # main loop
 
 print(f'Boxcounting in {MODE} mode')
-# collect all discontinuity ids
-ids = [c.split('_')[0] for c in listdir(r'../combinations') if 'discontinuities' in c]
 
 processed_sets = 0
 while processed_sets < N_SETS_TO_PROCESS:
-
+    # collect all discontinuity ids
+    ids = [c.split('_')[0] for c in listdir(r'../combinations') if 'discontinuities' in c]
     already_processed = [c.split('_')[0] for c in listdir(r'../combinations') if '_boxcount' in c]
     ids_unprocessed = np.where(np.in1d(ids, already_processed) == False)[0]
 

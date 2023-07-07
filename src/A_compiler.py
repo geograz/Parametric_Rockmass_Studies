@@ -19,9 +19,26 @@ pd.options.mode.chained_assignment = None
 ##########################################
 # load text files with geometry parameters as outputted by grasshopper
 
+# clean files in case grasshopper produced inclomplete files
+all_files = list(listdir(r'../combinations'))
+for file_name in all_files:
+    id_ = file_name[:12]
+    values = f'{id_}.txt'
+    mesh = f'{id_}_discontinuities.stl'
+    boxes = f'{id_}_boxcount.txt'
+    if values in all_files and mesh in all_files:
+        pass
+    else:
+        print('delete incomplete files')
+        for f in [fr'../combinations/{values}', fr'../combinations/{mesh}',
+                  fr'../combinations/{boxes}']:
+            try:
+                remove(f)
+            except FileNotFoundError:
+                pass
+
 # load data from text files to a pd dataframe
 contents = []
-
 for file_name in listdir(r'../combinations'):
     if '_box' in file_name or 'FAIL' in file_name or '_Rast' in file_name:
         pass
@@ -41,9 +58,10 @@ inputs = ['bounding box size [m]', 'Jv boxes edge size [m]', 'seed',
           'set 1 - n joints',
           'set 1 - radius [m]', 'set 1 - radius std [m]',
           'set 1 - dip direction [°]', 'set 1 - dip direction std [°]',
-          'set 1 - dip [°]', 'set 1 - dip std [°]',
-          'set 2 - n joints',
-          'set 2 - radius [m]', 'set 2 - radius std [m]',
+          'set 1 - dip [°]', 'set 1 - dip std [°]', 'set 1 - type',
+          'F_rand_sin', 'F_rand_n_planes', 'F_rand_angle', 'F_rand_axis_x',
+          'F_rand_axis_y', 'F_rand_axis_z',
+          'set 2 - n joints', 'set 2 - radius [m]', 'set 2 - radius std [m]',
           'set 2 - dip direction [°]', 'set 2 - dip direction std [°]',
           'set 2 - dip [°]', 'set 2 - dip std [°]',
           'set 3 - n joints',
@@ -63,15 +81,30 @@ outputs = ['meas. spacing set 1 [m]', 'meas. spacing set 2 [m]',
            'n blocks', 'avg. block volume [m³]',
            'max block volume [m³]', 'min block volume [m³]',
            'avg. block edge length [m]',
-           'avg. block surface area [m²]', 'a3', 'a2', 'a1']
+           'avg. block surface area [m²]', 'a3', 'a2', 'a1',
+           'set 1 total area [m2]', 'set 2 total area [m2]',
+           'set 3 total area [m2]', 'random set total area [m2]']
 
 columns = inputs + outputs
 
 df = pd.DataFrame(columns=columns, data=np.array(contents))
+
+# remove unused input data from discontinuity set 1 which is either a set of
+# planar, finite discontinuities or folded discontinuities
+id_plane = np.where(df['set 1 - type'] == 0)[0]
+id_folds = np.where(df['set 1 - type'] == 1)[0]
+
+df.loc[id_folds, ['set 1 - n joints', 'set 1 - radius [m]',
+                  'set 1 - radius std [m]', 'set 1 - dip direction [°]',
+                  'set 1 - dip direction std [°]', 'set 1 - dip [°]',
+                  'set 1 - dip std [°]']] = np.nan
+df.loc[id_plane, ['F_rand_sin', 'F_rand_n_planes', 'F_rand_angle',
+                  'F_rand_axis_x', 'F_rand_axis_y', 'F_rand_axis_z']] = np.nan
 df.set_index('identifier', inplace=True)
+
 print('data frame set up')
 # set up empty columns for later population
-for col in ['Minkowski', 'Hausdorff', 'similarity n zeros', 'similarity max',
+for col in ['Minkowski dimension', 'Hausdorff', 'similarity n zeros', 'similarity max',
             'similarity min', 'similarity mean', 'similarity median',
             'structural complexity']:
     df[col] = np.nan
@@ -82,16 +115,16 @@ for col in ['Minkowski', 'Hausdorff', 'similarity n zeros', 'similarity max',
 for sample in df.index:
     try:
         df_boxcount = pd.read_csv(fr'../combinations/{sample}_boxcount.txt')
-        df['Minkowski'].loc[sample] = params.Minkowski(
+        df['Minkowski dimension'].loc[sample] = params.Minkowski(
             df_boxcount['n boxes'], df_boxcount['box edge length [m]'])
         df['Hausdorff'].loc[sample] = params.Hausdorff(
             df_boxcount['n boxes'], df_boxcount['box edge length [m]'])
-        if np.isnan(df['Minkowski'].loc[sample]) == True:
+        if np.isnan(df['Minkowski dimension'].loc[sample]) == True:
             raise ValueError(f'{sample} has no computed boxes')
     except FileNotFoundError:
         pass
 
-n_processed = len(df) - df['Minkowski'].isna().sum()
+n_processed = len(df) - df['Minkowski dimension'].isna().sum()
 print(f'{n_processed} / {len(df)} fractal dimensions computed')
 
 ##########################################
@@ -140,9 +173,19 @@ for joint_set in [1, 2, 3, 4]:
         df[f'set {joint_set} - dip [°]'].iloc[id_0] = np.nan
         df[f'set {joint_set} - dip direction [°]'].iloc[id_0] = np.nan
 
-idx_neg_vol = np.where(df['avg. block volume [m³]'] < 0)[0]
-df = df.drop(index=idx_neg_vol)
+# idx_neg_vol = np.where(df['avg. block volume [m³]'] < 0)[0]
+# df = df.drop(index=idx_neg_vol)
+
+# drop all columns of features that are still under development such as block
+# volumes or fractal dimensions
+df.drop(['n blocks', 'avg. block volume [m³]', 'max block volume [m³]',
+         'min block volume [m³]', 'avg. block edge length [m]',
+         'avg. block surface area [m²]', 'a3', 'a2', 'a1',
+         'Hausdorff', 'similarity n zeros', 'similarity max',
+         'similarity min', 'similarity mean', 'similarity median',
+         'structural complexity'],
+        axis=1, inplace=True)
 
 # save to excel file
-df.to_excel(r'../output/dataset.xlsx')
+df.to_excel(r'../output/PDD1_0.xlsx')
 print('data compiled')

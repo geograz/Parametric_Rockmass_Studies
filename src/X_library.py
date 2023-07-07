@@ -7,6 +7,7 @@ Created on Fri Feb  3 22:48:55 2023
 
 from itertools import combinations
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
 import numpy as np
 import pandas as pd
 from skimage.transform import resize
@@ -23,26 +24,32 @@ class plotter:
 
     def Jv_plot(self, df: pd.DataFrame, Jv_s: list,
                 limit: float = 100) -> None:
-        fig = plt.figure(figsize=(8, 8))
+        '''figure that scatters different versions of the computed volumetric
+        joint count against each other'''
+        fig = plt.figure(figsize=(6, 6))
 
         ax = fig.add_subplot(1, 1, 1)
-
+        markers = ['o', 'v', 'P', 's', 'X', 'D'] * 2
         for i, jv in enumerate(Jv_s):
             x, y = 'Jv measured [discs/m³]', jv
             r2 = r2_score(df[x], df[y])
+            if r2 < 0:
+                r2 = '< 0'
+            else:
+                r2 = round(r2, 2)
             ax.scatter(df[x], df[y], alpha=0.5,
-                       label=f'{jv}; R2: {round(r2, 2)}')
+                       label=f'{jv}; R2: {r2}', marker=markers[i])
 
         ax.set_xlim(left=0, right=limit)
         ax.set_ylim(bottom=0, top=limit)
         ax.grid(alpha=0.5)
-        ax.set_xlabel(x)
-        ax.set_ylabel('Jv computed')
+        ax.set_xlabel('Jv measured [disc./m³]')
+        ax.set_ylabel('Jv computed [disc./m³]')
         ax.plot([0, limit], [0, limit], color='black')
-        ax.legend()
+        ax.legend(loc='upper right')
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/JVs.png')
+        plt.savefig(r'../graphics/JVs.png', dpi=300)
         plt.close()
 
     def DEM_FEM_data(self, df, p_size=4):
@@ -107,6 +114,7 @@ class plotter:
 
     def scatter_combinations(self, df: pd.DataFrame,
                              plot_params: list) -> None:
+        '''function creates scatter plots of one parameter against another'''
         params_dict = dict(zip(plot_params, list(range(len(plot_params)))))
 
         log_scale_params = ['avg. app. spacing [m]', 'max block volume [m³]',
@@ -114,14 +122,32 @@ class plotter:
                             'avg. block edge length [m]',
                             'n blocks', 'a3', 'a2', 'a1', 'block aspect ratio',
                             'avg. block surface area [m²]', 'Q_struct',
-                            'block volume computed']
+                            'block volume computed [m³]']
 
         for x, y in list(combinations(plot_params, 2)):
             if df[x].isna().sum() == len(df) or df[y].isna().sum() == len(df):
                 pass
             else:
+                # fit function to data
+                df_tmp = df.dropna(subset=[x, y])
+                df_tmp.sort_values(by=x, inplace=True)
+
                 fig, ax = plt.subplots(figsize=(8, 8))
-                ax.scatter(df[x], df[y], alpha=0.5)
+                ax.scatter(df_tmp[x], df_tmp[y], alpha=0.5)
+                for dim in [1, 2, 3]:
+                    z_1d = np.polyfit(df_tmp[x].values, df_tmp[y].values, dim)
+                    p_1d = np.poly1d(z_1d)
+                    function_vals = p_1d(df_tmp[x].values)
+                    r2 = round(r2_score(df_tmp[y].values, function_vals), 2)
+                    ax.plot(df_tmp[x].values, function_vals,
+                            label=f'poly fit {dim} d, r2: {r2}')
+                for dim in [1, 2]:
+                    z_1d = np.polyfit(df_tmp[x].values, np.log(df_tmp[y].values), dim)
+                    p_1d = np.poly1d(z_1d)
+                    function_vals = p_1d(df_tmp[x].values)
+                    r2 = round(r2_score(df_tmp[y].values, np.exp(function_vals)), 2)
+                    ax.plot(df_tmp[x].values, np.exp(function_vals),
+                            label=f'log fit {dim} d, r2: {r2}')
                 ax.set_xlabel(x)
                 ax.set_ylabel(y)
                 ax.grid(alpha=0.5)
@@ -129,9 +155,129 @@ class plotter:
                     ax.set_xscale('log')
                 if y in log_scale_params:
                     ax.set_yscale('log')
+                ax.legend()
                 plt.tight_layout()
                 plt.savefig(fr'../graphics/scatters/{params_dict[x]}_{params_dict[y]}.png', dpi=150)
                 plt.close()
+
+    def RQD_spacing_hist_plot(self, df: pd.DataFrame) -> None:
+        fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(3.5, 7))
+
+        ax1.hist(df['avg. RQD'], color='grey', edgecolor='black', bins=30)
+        ax1.set_title('avg. RQD')
+
+        ax2.hist(df['avg. app. spacing [m]'], color='grey', edgecolor='black',
+                 bins=30)
+        ax2.set_title('avg. app. spacing [m]')
+
+        plt.tight_layout()
+        plt.savefig(r'../graphics/RQD_hist.png', dpi=300)
+        plt.close()
+
+    def Pij_plot(self, df: pd.DataFrame, fsize: float = 15) -> None:
+        fig = plt.figure(figsize=(9, 7))
+
+        ax = fig.add_subplot(3, 3, 1)
+        ax.hist(df['avg. P10'], color='grey', edgecolor='black', bins=30)
+        ax.set_title('avg. P10', fontsize=fsize)
+
+        ax = fig.add_subplot(3, 3, 4)
+        ax.hist(df['avg. P20'], color='grey', edgecolor='black', bins=30)
+        ax.set_title('avg. P20', fontsize=fsize)
+
+        ax = fig.add_subplot(3, 3, 5)
+        ax.hist(df['avg. P21'], color='grey', edgecolor='black', bins=30)
+        ax.set_title('avg. P21', fontsize=fsize)
+
+        ax = fig.add_subplot(3, 3, 7)
+        ax.hist(df['Jv measured [discs/m³]'], color='grey', edgecolor='black',
+                bins=30)
+        ax.set_title('P30', fontsize=fsize)
+
+        ax = fig.add_subplot(3, 3, 9)
+        ax.hist(df['P32'], color='grey', edgecolor='black', bins=30)
+        ax.set_title('P32', fontsize=fsize)
+
+        fig.text(x=0.5, y=0.96, s='dimension of measurement', ha='center',
+                 fontsize=fsize)
+        fig.text(x=0.25, y=0.93, s='0', ha='center', fontsize=fsize)
+        fig.text(x=0.55, y=0.93, s='1', ha='center', fontsize=fsize)
+        fig.text(x=0.85, y=0.93, s='2', ha='center', fontsize=fsize)
+
+        fig.text(x=0.02, y=0.5, s='dimension of sample', va='center',
+                 rotation=90, fontsize=fsize)
+        fig.text(x=0.065, y=0.16, s='3D', ha='center', fontsize=fsize)
+        fig.text(x=0.065, y=0.45, s='2D', ha='center', fontsize=fsize)
+        fig.text(x=0.065, y=0.75, s='1D', ha='center', fontsize=fsize)
+
+        plt.tight_layout(rect=(0.07, 0, 1, 0.93))
+        plt.savefig(r'../graphics/Pij_plot.png', dpi=300)
+        plt.close()
+
+    def directional_lineplot(self, df: pd.DataFrame) -> None:
+        fig = plt.figure(figsize=(16, 6))
+        params = ['RQD_X', 'P10_X', 'P20_X', 'P21_X', 'apparent spacing_X [m]']
+        for i, p in enumerate(params):
+            ax = fig.add_subplot(1, 5, i+1)
+            cols = [p.replace('_X', f' {direction}') for direction in ['X', 'Y', 'Z']]
+            for i in range(len(df)):
+                if df['set 1 - type'].iloc[i] == 0:
+                    ax.plot([1, 2, 3], df[cols].iloc[i],
+                            color='C0', alpha=0.5)
+                else:
+                    ax.plot([1, 2, 3], df[cols].iloc[i],
+                            color='C1', alpha=0.5)
+            ax.grid(alpha=0.5)
+            ax.set_xticks([1, 2, 3])
+            ax.set_xticklabels(['X', 'Y', 'Z'])
+            ax.set_ylabel(p.replace('_X', ''))
+        plt.tight_layout()
+        plt.savefig(r'../graphics/directional_plot.png', dpi=300)
+        plt.close()
+
+    def Q_Jv_plot(self, df: pd.DataFrame) -> None:
+        x_min, x_max = 0, 125
+        y_min, y_max = 0.1, 100
+
+        fig, ax = plt.subplots(figsize=(7, 7))
+        cax = ax.scatter(df['Jv measured [discs/m³]'], df['Q_struct'],
+                         c=df['avg. RQD'], alpha=0.6, vmin=0, vmax=100,
+                         zorder=10)
+        ax.hlines([1, 4, 10, 40], xmin=x_min, xmax=x_max, color='black',
+                  zorder=1)
+        ax.vlines([1, 3, 10, 30, 60], ymin=y_min, ymax=y_max, color='black',
+                  zorder=1)
+
+        ax.text(1.1, 0.9, 'very poor', va='top')
+        ax.text(1.1, 3.5, 'poor', va='top')
+        ax.text(1.1, 9, 'fair', va='top')
+        ax.text(1.1, 39, 'good', va='top')
+        ax.text(1.1, 99, 'very good', va='top')
+
+        ax.text(0.95, 0.15, 'very large\nblocks', rotation=-90, ha='right')
+        ax.text(2.9, 0.15, 'large blocks', rotation=-90, ha='right')
+        ax.text(9, 0.15, 'medium-sized\nblocks', rotation=-90, ha='right')
+        ax.text(29, 0.15, 'small blocks', rotation=-90, ha='right')
+        ax.text(59, 0.15, 'very small\nblocks', rotation=-90, ha='right')
+        ax.text(99, 0.15, 'crushed rock', rotation=-90, ha='right')
+
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_xticks([1, 3, 10, 30, 60, 100])
+        ax.set_yticks([1, 4, 10, 40, 100])
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+        ax.set_xlim(left=x_min, right=x_max)
+        ax.set_ylim(bottom=y_min, top=y_max)
+        ax.set_xlabel('Jv measured [discs/m³]')
+        ax.set_ylabel('Q structural (RQD/Jn)')
+
+        cbar = plt.colorbar(cax)
+        cbar.set_label('RQD')
+
+        plt.tight_layout()
+        plt.savefig(r'../graphics/Q_Jv_plot.png', dpi=300)
+        plt.close()
 
 
 class math:
@@ -264,15 +410,17 @@ class parameters:
         pass
 
     def Jv_ISO14689(self, spacings1, spacings2, spacings3):
-        '''computes volumetric joint count acc. to EN ISO 14689'''
+        '''computes volumetric joint count acc. to EN ISO 14689 and Palmstrøm
+        (1982)'''
         set1 = (1/spacings1).fillna(0)
         set2 = (1/spacings2).fillna(0)
         set3 = (1/spacings3).fillna(0)
         return set1 + set2 + set3
 
-    def Jv_Palmstroem2005(self, spacings1, spacings2, spacings3,
+    def Jv_Palmstroem2000(self, spacings1, spacings2, spacings3,
                           n_random, tot_volume):
-        '''computes volumetric joint count acc. to Palmstrøm 2005'''
+        '''computes volumetric joint count acc. to Palmstrøm (2000)'''
+        # TODO check if computation is correct!
         set1 = (1/spacings1).fillna(0)
         set2 = (1/spacings2).fillna(0)
         set3 = (1/spacings3).fillna(0)
@@ -286,7 +434,7 @@ class parameters:
             J_v = N_z/L_z + N_y/L_y + N_x/L_x
         where N = number of disc. intersections per scanline and L = length of
         scanline. Here this equals to the definition of P10'''
-        return P10x + P10y + P10z
+        return P10x * P10y * P10z
 
     def Jv_Sonmez1999_2(self, P10_average):
         '''computes volumetric joint count acc. to Sonmez & Ulusay (1999) for
@@ -296,48 +444,87 @@ class parameters:
         of that scanline. Here this equals to the definition of P10 average'''
         return P10_average**3
 
-    def Sonmez2002(self):
-        pass
+    def Jv_Sonmez2002(self, n_disc_sets, average_spacing):
+        '''computation of Jv acc. to Sonmez and Ulusay (2002)'''
+        return n_disc_sets * (1 / average_spacing)
 
     def block_volume_palmstroem(self, S1, S2, S3, alpha, beta, gamma):
+        '''computation of the average block volume according to Palmstrøm
+        (2000)'''
         return S1*S2*S3*(np.sin(np.radians(alpha))*np.sin(np.radians(beta))*np.sin(np.radians(gamma)))
 
-    def compute_n_disc_sets(self, set_1_ratio: np.array, set_2_ratio: np.array,
-                            set_3_ratio: np.array, rand_set_ratio: np.array,
-                            n_tot: np.array) -> list:
-        '''computes the number of discontinuity sets and the respective "joint
-        number" rating according to the Q-system'''
+    def compute_n_disc_sets(self, df: pd.DataFrame) -> list:
+        '''computes the number of discontinuity sets'''
+        sets = ['set_1_ratio', 'set_2_ratio', 'set_3_ratio', 'rand_set_ratio']
 
         n_s = []  # collection of numbers of discontinuities
-        Jn_s = []  # collection of J_n from the Q-system
-        for i in range(len(n_tot)):
-            if n_tot[i] < 100:
+        for i in range(len(df)):
+            if df['Jv measured [discs/m³]'].iloc[i] < 1:
                 # Massive, no or few joints
-                n, Jn = 0, 1
-            elif set_1_ratio[i] > 0.14 and set_2_ratio[i] > 0.14 and set_3_ratio[i] > 0.14 and rand_set_ratio[i] > 0.14:
-                # 3 sets + random
-                n, Jn = 4, 12
-            elif set_1_ratio[i] > 0.2 and set_2_ratio[i] > 0.2 and set_3_ratio[i] > 0.2:
+                n = 0
+            elif len(np.where(df.iloc[i][sets].values > 0.15)[0]) == 4:
+                # 4 sets
+                n = 4
+            elif len(np.where(df.iloc[i][sets].values > 0.20)[0]) == 3:
                 # 3 sets
-                n, Jn = 3, 9
-            elif (set_1_ratio[i] > 0.18 and set_2_ratio[i] > 0.18) or (set_1_ratio[i] > 0.18 and set_3_ratio[i] > 0.18) or (set_2_ratio[i] > 0.18 and set_3_ratio[i] > 0.18) and rand_set_ratio[i] > 0.22:
-                # 2 sets + random
-                n, Jn = 3, 6
-            elif (set_1_ratio[i] > 0.25 and set_2_ratio[i] > 0.25) or (set_1_ratio[i] > 0.25 and set_3_ratio[i] > 0.25) or (set_2_ratio[i] > 0.25 and set_3_ratio[i] > 0.25):
+                n = 3
+            elif len(np.where(df.iloc[i][sets].values > 0.225)[0]) == 2:
                 # 2 sets
-                n, Jn = 2, 4
-            elif set_1_ratio[i] > 0.35 or set_2_ratio[i] > 0.35 or set_3_ratio[i] > 0.35 and rand_set_ratio[i] > 0.25:
-                # 1 set + random
-                n, Jn = 2, 3
-            elif set_1_ratio[i] > 0.35 or set_2_ratio[i] > 0.35 or set_3_ratio[i] > 0.35 or rand_set_ratio[i] > 0.35:
+                n = 2
+            elif len(np.where(df.iloc[i][sets].values > 0.40)[0]) == 1:
                 # 1 set
-                n, Jn = 1, 2
+                n = 1
             else:
-                n, Jn = 'n na', 'Jn na'
+                n = 'n na'
             n_s.append(n)
+
+        return n_s
+
+    def compute_Jn(self, df: pd.DataFrame) -> list:
+        '''computes the respective "joint number" rating according to the
+        Q-system of '''
+        sets = ['set_1_ratio', 'set_2_ratio', 'set_3_ratio', 'rand_set_ratio']
+
+        Jn_s = []  # collection of numbers of discontinuities
+        for i in range(len(df)):
+            if df['Jv measured [discs/m³]'].iloc[i] < 1:
+                # Massive, no or few joints acc. to ISRM blue book
+                Jn = 1
+            elif df['Jv measured [discs/m³]'].iloc[i] > 60:
+                # crushed rock acc. to ISRM blue book
+                Jn = 20
+            elif len(np.where(df.iloc[i][sets].values > 0.15)[0]) == 4 and df['Jv measured [discs/m³]'].iloc[i] > 30:
+                # very small blocks acc. to ISRM blue book
+                Jn = 15
+            elif len(np.where(df.iloc[i][sets].values > 0.15)[0]) == 4:
+                # three joint sets + random
+                Jn = 12
+            elif len(np.where(df.iloc[i][sets[:3]].values > 0.20)[0]) == 3:
+                # three sets
+                Jn = 9
+            elif df.iloc[i]['rand_set_ratio'] > 0.20 and len(np.where(df.iloc[i][['set_1_ratio', 'set_2_ratio']].values > 0.20)[0]) == 2:
+                # two joint sets plus random joints
+                Jn = 6
+            elif df.iloc[i]['rand_set_ratio'] > 0.20 and len(np.where(df.iloc[i][['set_1_ratio', 'set_3_ratio']].values > 0.20)[0]) == 2:
+                # two joint sets plus random joints
+                Jn = 6
+            elif df.iloc[i]['rand_set_ratio'] > 0.20 and len(np.where(df.iloc[i][['set_2_ratio', 'set_3_ratio']].values > 0.20)[0]) == 2:
+                # two joint sets plus random joints
+                Jn = 6
+            elif len(np.where(df.iloc[i][sets[:3]].values > 0.25)[0]) == 2:
+                # two sets
+                Jn = 4
+            elif df.iloc[i]['rand_set_ratio'] > 0.3 and len(np.where(df.iloc[i][sets[:3]].values > 0.3)[0]) == 1:
+                # 1 set plus random joints
+                Jn = 3
+            elif len(np.where(df.iloc[i][sets].values > 0.4)[0]) == 1:
+                # 1 set
+                Jn = 2
+            else:
+                Jn = 'Jn na'
             Jn_s.append(Jn)
 
-        return n_s, Jn_s
+        return Jn_s
 
     def Minkowski(self, n_boxes, box_sizes):
         N_ = np.log(n_boxes)
