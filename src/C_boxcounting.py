@@ -14,10 +14,10 @@ import pandas as pd
 #############################
 # static variables and constants
 
-N_SETS_TO_PROCESS = 400  # max number of sets to process in this run
+N_SETS_TO_PROCESS = 61  # max number of sets to process in this run
 TOT_BBOX_SIZE = 10  # size of full bounding box
 # run code for random- or sequential unprocessed samples -> multiprocessing
-MODE = 'random'  # 'random', 'sequential'
+MODE = 'sequential'  # 'random', 'sequential'
 
 #############################
 # main loop
