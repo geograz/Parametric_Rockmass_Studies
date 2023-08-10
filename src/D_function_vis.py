@@ -5,7 +5,7 @@ folded discontinuities"
 Dr. Georg H. Erharter - 2023
 DOI: XXXXXXXXXXX
 
-Script that generates specific plots for the publication.
+Script that generates specific plots for publications.
 """
 
 # defining the libraries
