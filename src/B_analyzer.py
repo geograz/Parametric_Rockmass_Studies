@@ -1,17 +1,75 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Feb 14 20:38:57 2023
+Code to the paper "Rock mass structure characterization considering finite and
+folded discontinuities"
+Dr. Georg H. Erharter - 2023
+DOI: XXXXXXXXXXX
 
-@author: GEr
+Script that processes the compiled records of the discrete discontinuity
+dataset, computes new parameters and creates figures to visualize the dataset.
 """
 
-import matplotlib.pyplot as plt
 import numpy as np
-import os
 import pandas as pd
 
 from X_library import plotter, math, parameters, utilities
 
+
+##########################################
+# static variables and constants
+##########################################
+
+measured = ['meas. spacing set 1 [m]', 'meas. spacing set 2 [m]',
+            'meas. spacing set 3 [m]', 'RQD Y', 'RQD X', 'RQD Z',
+            'apparent spacing Y [m]', 'apparent spacing X [m]',
+            'apparent spacing Z [m]', 'P10 Y', 'P10 X', 'P10 Z', 'P20 X',
+            'P21 X', 'P20 Y', 'P21 Y', 'P20 Z', 'P21 Z',
+            'Jv measured [discs/m³]', 'P32', 'set 1 total area [m2]',
+            'set 2 total area [m2]', 'set 3 total area [m2]',
+            'random set total area [m2]', 'Minkowski dimension']
+computed = ['avg. P10', 'avg. P20', 'avg. P21', 'avg. app. spacing [m]',
+            'avg. RQD', 'Jv ISO 14689 (2019)', 'Jv Palmstrøm (2000)',
+            'Jv Sonmez & Ulusay (1999) 1', 'Jv Sonmez & Ulusay (1999) 2',
+            'Jv Erharter (2023)', 'tot disc. area [m2]', 'set_1_ratio',
+            'set_2_ratio', 'set_3_ratio', 'rand_set_ratio', 'n_discs',
+            'Qsys_Jn', 'Q_struct', 'avg. disc. set spacing [m]',
+            'Jv Sonmez & Ulusay (2002)', 'alpha [°]', 'beta [°]', 'gamma [°]',
+            'block volume computed [m³]']
+
+plot_params = ['avg. P10', 'avg. P20', 'avg. P21', 'P32',
+               'Jv measured [discs/m³]', 'avg. RQD', 'Minkowski dimension']
+
+relation_dic = {'linear':
+                [['avg. P10', 'avg. P21'], ['avg. P21', 'avg. P10'],
+                 ['avg. P21', 'P32'], ['P32', 'avg. P21'],
+                 ['avg. P10', 'P32'], ['P32', 'avg. P10'],
+                 ['avg. P10', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'avg. P10'],
+                 ['avg. P21', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'avg. P21'],
+                 ['P32', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'P32']],
+
+                'exponential':
+                [['avg. RQD', 'avg. P10'], ['avg. P10', 'avg. RQD'],
+                 ['avg. P20', 'avg. RQD'], ['avg. RQD', 'avg. P20'],
+                 ['avg. P21', 'avg. RQD'], ['avg. RQD', 'avg. P21'],
+                 ['Jv measured [discs/m³]', 'avg. RQD'], ['avg. RQD', 'Jv measured [discs/m³]'],
+                 ['P32', 'avg. RQD'], ['avg. RQD', 'P32']],
+
+                'powerlaw':
+                [['Minkowski dimension', 'avg. P21'], ['avg. P21', 'Minkowski dimension'],
+                 ['Minkowski dimension', 'avg. P10'], ['avg. P10', 'Minkowski dimension'],
+                 ['Minkowski dimension', 'avg. P20'], ['avg. P20', 'Minkowski dimension'],
+                 ['Minkowski dimension', 'P32'], ['P32', 'Minkowski dimension'],
+                 ['Minkowski dimension', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'Minkowski dimension'],
+                 ['avg. P20', 'avg. P10'], ['avg. P10', 'avg. P20'],
+                 ['avg. P20', 'avg. P21'], ['avg. P21', 'avg. P20'],
+                 ['avg. P20', 'P32'], ['P32', 'avg. P20'],
+                 ['avg. P20', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'avg. P20'],
+                 ['Minkowski dimension', 'avg. RQD'], ['avg. RQD', 'Minkowski dimension']],
+                }
+
+##########################################
+# instantiations, data loading and preprocessing
+##########################################
 
 pltr = plotter()
 m = math()
@@ -59,7 +117,7 @@ df['Jv Sonmez & Ulusay (1999) 1'] = params.Jv_Sonmez1999_1(df['P10 X'],
 
 df['Jv Sonmez & Ulusay (1999) 2'] = params.Jv_Sonmez1999_2(df['avg. P10'])
 
-df['Jv Erharter (2023)'] = 3*df['avg. P10'] * 0.75 + 4
+df['Jv Erharter (2023)'] = 3*df['avg. P10'] * 0.8 + 2
 
 # compute set ratio based on discontinuity area per set to determine the number
 # of discontinuity sets
@@ -108,69 +166,17 @@ df['block volume computed [m³]'] = params.block_volume_palmstroem(
     beta=df['beta [°]'],
     gamma=df['gamma [°]'])
 
-measured = ['meas. spacing set 1 [m]', 'meas. spacing set 2 [m]',
-            'meas. spacing set 3 [m]', 'RQD Y', 'RQD X', 'RQD Z',
-            'apparent spacing Y [m]', 'apparent spacing X [m]',
-            'apparent spacing Z [m]', 'P10 Y', 'P10 X', 'P10 Z', 'P20 X',
-            'P21 X', 'P20 Y', 'P21 Y', 'P20 Z', 'P21 Z',
-            'Jv measured [discs/m³]', 'P32', 'set 1 total area [m2]',
-            'set 2 total area [m2]', 'set 3 total area [m2]',
-            'random set total area [m2]', 'Minkowski dimension']
-computed = ['avg. P10', 'avg. P20', 'avg. P21', 'avg. app. spacing [m]',
-            'avg. RQD', 'Jv ISO 14689 (2019)', 'Jv Palmstrøm (2000)',
-            'Jv Sonmez & Ulusay (1999) 1', 'Jv Sonmez & Ulusay (1999) 2',
-            'Jv Erharter (2023)', 'tot disc. area [m2]', 'set_1_ratio',
-            'set_2_ratio', 'set_3_ratio', 'rand_set_ratio', 'n_discs',
-            'Qsys_Jn', 'Q_struct', 'avg. disc. set spacing [m]',
-            'Jv Sonmez & Ulusay (2002)', 'alpha [°]', 'beta [°]', 'gamma [°]',
-            'block volume computed [m³]']
+# save data to excel files
 df[measured].describe().to_excel(r'../output/PDD1_stats_measured.xlsx')
 df[computed].describe().to_excel(r'../output/PDD1_stats_computed.xlsx')
-
-# save data to excel file
 df.to_excel(r'../output/PDD1_1.xlsx')
 
 ##########################################
 # visualizations of the dataset
 ##########################################
 
-df['log. avg. app. spacing [m]'] = np.log(df['avg. app. spacing [m]'])
-
-plot_params = ['avg. RQD', 'avg. P10', 'avg. P20', 'avg. P21', 'P32',
-               'Jv measured [discs/m³]', 'Minkowski dimension']
-
-relation_dic = {'linear':
-                [['avg. P20', 'avg. RQD'], ['avg. RQD', 'avg. P20'],
-                 ['avg. P10', 'avg. P21'], ['avg. P21', 'avg. P10'],
-                 ['avg. P21', 'P32'], ['P32', 'avg. P21'],
-                 ['avg. P10', 'P32'], ['P32', 'avg. P10'],
-                 ['avg. P10', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'avg. P10'],
-                 ['avg. P21', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'avg. P21'],
-                 ['P32', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'P32'],
-                 ['Minkowski dimension', 'avg. RQD'], ['avg. RQD', 'Minkowski dimension']],
-
-                'quadratic':
-                [['avg. RQD', 'avg. P10'], ['avg. P10', 'avg. RQD'],
-                 ['avg. P21', 'avg. RQD'], ['avg. RQD', 'avg. P21'],
-                 ['P32', 'avg. RQD'], ['avg. RQD', 'P32'],
-                 ['Jv measured [discs/m³]', 'avg. RQD'], ['avg. RQD', 'Jv measured [discs/m³]']],
-
-                'powerlaw':
-                [['Minkowski dimension', 'avg. P21'], ['avg. P21', 'Minkowski dimension'],
-                 ['Minkowski dimension', 'avg. P10'], ['avg. P10', 'Minkowski dimension'],
-                 ['Minkowski dimension', 'avg. P20'], ['avg. P20', 'Minkowski dimension'],
-                 ['Minkowski dimension', 'P32'], ['P32', 'Minkowski dimension'],
-                 ['Minkowski dimension', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'Minkowski dimension'],
-                 ['avg. P20', 'avg. P10'], ['avg. P10', 'avg. P20'],
-                 ['avg. P20', 'avg. P21'], ['avg. P21', 'avg. P20'],
-                 ['avg. P20', 'P32'], ['P32', 'avg. P20'],
-                 ['avg. P20', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'avg. P20']],
-                }
-
 pltr.custom_pairplot(df, plot_params, relation_dic)
 
-for file in os.listdir(r'../graphics/scatters/'):
-    os.remove(fr'../graphics/scatters/{file}')
 pltr.scatter_combinations(df, relation_dic, plot_params)
 
 pltr.Q_Jv_plot(df)
@@ -181,12 +187,9 @@ pltr.Pij_plot(df)
 
 pltr.RQD_spacing_hist_plot(df)
 
-# pltr.DEM_FEM_data(df)
+JVs = ['Jv ISO 14689 (2019)', 'Jv Palmstrøm (2000)',
+       'Jv Sonmez & Ulusay (1999) 1', 'Jv Sonmez & Ulusay (1999) 2',
+       'Jv Sonmez & Ulusay (2002)', 'Jv Erharter (2023)']
 
-pltr.Jv_plot(df, Jv_s=['Jv ISO 14689 (2019)',
-                       'Jv Palmstrøm (2000)',
-                       'Jv Sonmez & Ulusay (1999) 1',
-                       'Jv Sonmez & Ulusay (1999) 2',
-                       'Jv Sonmez & Ulusay (2002)',
-                       'Jv Erharter (2023)'],
+pltr.Jv_plot(df, Jv_s=JVs,
              limit=df['Jv measured [discs/m³]'].max()+5)

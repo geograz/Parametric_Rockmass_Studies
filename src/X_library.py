@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Feb  3 22:48:55 2023
+Code to the paper "Rock mass structure characterization considering finite and
+folded discontinuities"
+Dr. Georg H. Erharter - 2023
+DOI: XXXXXXXXXXX
 
-@author: GEr
+Script that contains a custom library with different classes of functions for
+math, plotting or general use (utilities).
 """
 
 import numpy as np
@@ -142,32 +146,23 @@ class utilities:
         idx = np.lexsort((indices[:,0], indices[:,1], indices[:,2])).reshape(RESOLUTION, RESOLUTION, RESOLUTION)
         return intersecting[idx]
 
-    def piecewise_linear(self, x, m1, b1, m2, b2):
-        # Define piecewise linear function
-        y1 = m1 * x + b1
-        y2 = m2 * x + b2
-        # Determine the indices where the x values divide the data into two pieces
-        idx = np.where(x >= x[0] + (x[-1] - x[0]) / 2)[0][0]
-        # Combine the two linear functions
-        y = np.concatenate((y1[:idx], y2[idx:]))
-        return y
-
-    def fit_piecewise_linear(self, x, y):
-        # Initial parameter guesses
-        initial_params = [1.0, 1.0, 1.0, 1.0]
-        # Fit the piecewise linear function to the data
-        optimized_params, _ = curve_fit(self.piecewise_linear, x, y,
-                                        p0=initial_params)
-        # Extract the optimized parameters
-        m1, b1, m2, b2 = optimized_params
-
-        # Determine the x coordinate that separates the two pieces
-        x_sep = x[0] + (x[-1] - x[0]) / 2
-
-        return m1, b1, m2, b2, (x_sep, m1 * x_sep + b1)
-
     def power_law(self, x, a, b):
         return a * np.power(x, b)
+
+    def power_law_neg(self, x, a, b, c):
+        return a * np.power(x, b) + c
+
+    def exponential(self, x, a, b, c):
+        return a * np.exp(-b*x) * (b*x + c)
+
+    def fit_power_law_neg(self, x, y):
+        # Perform the curve fit
+        p0 = [-0.05, 1.01, 3]
+        params, _ = curve_fit(self.power_law_neg, x, y, p0=p0)
+
+        # Extract the fitted parameters
+        a_fit, b_fit, c_fit = params
+        return a_fit, b_fit, c_fit
 
     def fit_power_law(self, x, y):
         # Perform the curve fit
@@ -177,18 +172,14 @@ class utilities:
         a_fit, b_fit = params
         return a_fit, b_fit
 
-    def sigmoid(self, x, L, x0, k, b):
-        y = L / (1 + np.exp(-k*(x-x0))) + b
-        return (y)
-
-    def fit_sigmoid(self, x, y):
+    def fit_exponential(self, x, y):
         # Perform the curve fit
-        p0 = [max(y), np.median(x), 1, min(y)]
-        params, _ = curve_fit(self.sigmoid, x, y, p0=p0, maxfev=10_000)
+        p0 = [100, 0.1, 1]
+        params, _ = curve_fit(self.exponential, x, y, p0=p0)
 
         # Extract the fitted parameters
-        L, x0, k, b = params
-        return L, x0, k, b
+        a_fit, b_fit, c_fit = params
+        return a_fit, b_fit, c_fit
 
 
 class plotter(utilities):
@@ -206,12 +197,13 @@ class plotter(utilities):
         markers = ['o', 'v', 'P', 's', 'X', 'D'] * 2
         for i, jv in enumerate(Jv_s):
             x, y = 'Jv measured [discs/m³]', jv
-            r2 = r2_score(df[x], df[y])
+            df_temp = df.dropna(subset=[x, y])
+            r2 = r2_score(df_temp[x], df_temp[y])
             if r2 < 0:
                 r2 = '< 0'
             else:
                 r2 = round(r2, 2)
-            ax.scatter(df[x], df[y], alpha=0.5,
+            ax.scatter(df_temp[x], df_temp[y], alpha=0.5,
                        label=f'{jv}; R2: {r2}', marker=markers[i])
 
         ax.set_xlim(left=0, right=limit)
@@ -223,7 +215,7 @@ class plotter(utilities):
         ax.legend(loc='upper right')
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/JVs.png', dpi=300)
+        plt.savefig(r'../graphics/JVs.png', dpi=600)
         plt.close()
 
     def top_x_barplot(self, values: np.array, labels: np.array, title: str,
@@ -253,7 +245,7 @@ class plotter(utilities):
                     ax.hist(df[plot_params[i]], bins=30, color='grey',
                             edgecolor='black')
                     ax.set_xlabel(plot_params[i], fontsize=fsize)
-                if i > j:  # scatter
+                if i < j:  # scatter
                     ax.scatter(df[plot_params[i]], df[plot_params[j]],
                                color='grey', edgecolor='black', s=1, alpha=0.3)
                     ax.set_xlabel(plot_params[i], fontsize=fsize)
@@ -262,15 +254,15 @@ class plotter(utilities):
                     if [plot_params[i], plot_params[j]] in relation_dic['linear']:
                         ax.text(x=0.5, y=0.5, s='li', fontsize=fsize*3,
                                 ha='center', va='center')
-                        ax.set_facecolor('beige')
-                    elif [plot_params[i], plot_params[j]] in relation_dic['quadratic']:
-                        ax.text(x=0.5, y=0.5, s='qu', fontsize=fsize*3,
+                        ax.set_facecolor('goldenrod')
+                    elif [plot_params[i], plot_params[j]] in relation_dic['exponential']:
+                        ax.text(x=0.5, y=0.5, s='ex', fontsize=fsize*3,
                                 ha='center', va='center')
-                        ax.set_facecolor('cyan')
+                        ax.set_facecolor('lightgrey')
                     elif [plot_params[i], plot_params[j]] in relation_dic['powerlaw']:
                         ax.text(x=0.5, y=0.5, s='po', fontsize=fsize*3,
                                 ha='center', va='center')
-                        ax.set_facecolor('grey')
+                        ax.set_facecolor('orangered')
                     ax.set_xlabel(plot_params[i], fontsize=fsize)
                     ax.set_ylabel(plot_params[j], fontsize=fsize)
                     ax.set_xticks([])
@@ -279,7 +271,7 @@ class plotter(utilities):
                 counter += 1
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/pairplot.png', dpi=320)
+        plt.savefig(r'../graphics/pairplot.png', dpi=600)
         plt.close()
 
     def scatter_combinations(self, df: pd.DataFrame, relation_dic: dict,
@@ -307,25 +299,32 @@ class plotter(utilities):
                         r2 = round(r2_score(df_tmp[y].values, function_vals),
                                    2)
                         ax.plot(df_tmp[x].values, function_vals, color='black',
-                                label=f'linear fit, r2: {r2}\n{y} = {round(z_1d[0], 2)} * {x} + {round(z_1d[1], 2)}')
+                                label=f'linear fit, r2: {r2}\n{y} = {round(z_1d[0], 3)} * {x} + {round(z_1d[1], 3)}')
 
-                    elif [x, y] in relation_dic['quadratic']:
-                        z_1d = np.polyfit(df_tmp[x].values, df_tmp[y].values,
-                                          2)
-                        p_1d = np.poly1d(z_1d)
-                        function_vals = p_1d(df_tmp[x].values)
-                        r2 = round(r2_score(df_tmp[y].values, function_vals),
-                                   2)
-                        ax.plot(df_tmp[x].values, function_vals, color='black',
-                                label=f'poly fit, r2: {r2}\n{z_1d}')
-
-                    elif [x, y] in relation_dic['powerlaw']:
-                        a, b = self.fit_power_law(df_tmp[x].values,
-                                                  df_tmp[y].values)
-                        y_fit = self.power_law(df_tmp[x].values, a, b)
+                    elif [x, y] in relation_dic['exponential']:
+                        a, b, c = self.fit_exponential(df_tmp[x].values,
+                                                       df_tmp[y].values)
+                        y_fit = self.exponential(df_tmp[x].values, a, b, c)
                         r2 = round(r2_score(df_tmp[y].values, y_fit), 2)
                         ax.plot(df_tmp[x].values, y_fit, color='black',
-                                label=f'powerlaw fit, r2: {r2}\n{y} = {round(a, 2)}*{x}^{round(b, 2)}')
+                                label=f'exponential fit, r2: {r2}\n{a, b, c}')
+
+                    elif [x, y] in relation_dic['powerlaw']:
+                        if x == 'avg. RQD' and y == 'Minkowski dimension':
+                            a, b, c = self.fit_power_law_neg(df_tmp[x].values,
+                                                      df_tmp[y].values)
+                            y_fit = self.power_law_neg(df_tmp[x].values, a, b,
+                                                       c)
+                            r2 = round(r2_score(df_tmp[y].values, y_fit), 2)
+                            ax.plot(df_tmp[x].values, y_fit, color='black',
+                                    label=f'powerlaw fit, r2: {r2}\n{y} = {a}*{x}^{round(b, 5)}+{round(c, 5)}')
+                        else:
+                            a, b = self.fit_power_law(df_tmp[x].values,
+                                                      df_tmp[y].values)
+                            y_fit = self.power_law(df_tmp[x].values, a, b)
+                            r2 = round(r2_score(df_tmp[y].values, y_fit), 2)
+                            ax.plot(df_tmp[x].values, y_fit, color='black',
+                                    label=f'powerlaw fit, r2: {r2}\n{y} = {round(a, 3)}*{x}^{round(b, 3)}')
 
                     ax.set_xlabel(x)
                     ax.set_ylabel(y)
@@ -346,7 +345,7 @@ class plotter(utilities):
         ax2.set_title('avg. app. spacing [m]')
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/RQD_hist.png', dpi=300)
+        plt.savefig(r'../graphics/RQD_hist.png', dpi=600)
         plt.close()
 
     def Pij_plot(self, df: pd.DataFrame, fsize: float = 15) -> None:
@@ -373,20 +372,20 @@ class plotter(utilities):
         ax.hist(df['P32'], color='grey', edgecolor='black', bins=30)
         ax.set_title('P32', fontsize=fsize)
 
-        fig.text(x=0.5, y=0.96, s='dimension of measurement', ha='center',
+        fig.text(x=0.55, y=0.96, s='dimension of measurement', ha='center',
                  fontsize=fsize)
         fig.text(x=0.25, y=0.93, s='0', ha='center', fontsize=fsize)
         fig.text(x=0.55, y=0.93, s='1', ha='center', fontsize=fsize)
         fig.text(x=0.85, y=0.93, s='2', ha='center', fontsize=fsize)
 
-        fig.text(x=0.02, y=0.5, s='dimension of sample', va='center',
+        fig.text(x=0.02, y=0.45, s='dimension of sample', va='center',
                  rotation=90, fontsize=fsize)
         fig.text(x=0.065, y=0.16, s='3D', ha='center', fontsize=fsize)
         fig.text(x=0.065, y=0.45, s='2D', ha='center', fontsize=fsize)
         fig.text(x=0.065, y=0.75, s='1D', ha='center', fontsize=fsize)
 
         plt.tight_layout(rect=(0.07, 0, 1, 0.93))
-        plt.savefig(r'../graphics/Pij_plot.png', dpi=300)
+        plt.savefig(r'../graphics/Pij_plot.png', dpi=600)
         plt.close()
 
     def directional_lineplot(self, df: pd.DataFrame) -> None:
@@ -451,10 +450,8 @@ class plotter(utilities):
         cbar.set_label('RQD')
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/Q_Jv_plot.png', dpi=300)
+        plt.savefig(r'../graphics/Q_Jv_plot.png', dpi=600)
         plt.close()
-
-
 
 
 class parameters:
@@ -583,11 +580,6 @@ class parameters:
         N_ = np.log(n_boxes)
         eps_ = np.log(1/box_sizes)
         return np.polyfit(eps_, N_, 1)[0]
-
-    def Hausdorff(self, n_boxes, box_sizes):
-        log_n_boxs = np.log2(n_boxes)
-        log_epsilon = np.log2(box_sizes)
-        return -1 * np.polyfit(log_epsilon, log_n_boxs, 1)[0]
 
     def scalar_p_image(self, arr1, arr2):
         '''function that computs the scalar product of 2 RGB images'''

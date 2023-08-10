@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Mar 31 13:22:39 2023
+Experimental code to the paper XXXX
+Dr. Georg H. Erharter - 2023
+DOI: XXXXXXXXXXX
 
-@author: GEr
+Script that investigates different ways of developing new parameters for rock
+mass characterization
+(results not included in first paper).
 """
 
 import numpy as np

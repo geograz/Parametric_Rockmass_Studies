@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-script that generates new features based on simple mathematical operations on a
-dataframe
+Experimental code to the paper XXXX
+Dr. Georg H. Erharter - 2023
+DOI: XXXXXXXXXXX
 
-author: Georg H. Erharter (georg.erharter@ngi.no)
+Script that contains functions to develop new parameters for rock mass
+characterization.
+(results not included in first paper)
 """
 
 import numpy as np

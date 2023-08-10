@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jan 26 17:02:53 2023
+Code to the paper "Rock mass structure characterization considering finite and
+folded discontinuities"
+Dr. Georg H. Erharter - 2023
+DOI: XXXXXXXXXXX
 
-@author: Schorsch
+Script that performs voxel based boxcounting that is used to estimate each
+samples' fractal dimension.
 """
 
 from datetime import datetime
@@ -14,10 +18,10 @@ import pandas as pd
 #############################
 # static variables and constants
 
-N_SETS_TO_PROCESS = 61  # max number of sets to process in this run
+N_SETS_TO_PROCESS = 809  # max number of sets to process in this run
 TOT_BBOX_SIZE = 10  # size of full bounding box
 # run code for random- or sequential unprocessed samples -> multiprocessing
-MODE = 'sequential'  # 'random', 'sequential'
+MODE = 'random'  # 'random', 'sequential'
 
 #############################
 # main loop

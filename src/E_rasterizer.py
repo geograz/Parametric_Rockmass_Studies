@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Feb  4 09:12:18 2023
+Experimental code to the paper XXXX
+Dr. Georg H. Erharter - 2023
+DOI: XXXXXXXXXXX
 
-@author: GEr
+Script that performs different raster based analyses on the dataset
+(results not included in first paper).
 """
 
 import gc

@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Dec 11 14:11:14 2022
+Code to the paper "Rock mass structure characterization considering finite and
+folded discontinuities"
+Dr. Georg H. Erharter - 2023
+DOI: XXXXXXXXXXX
 
-@author: GEr
+Script that compiles the recorded data from samples of the discrete
+discontinuity networks and creates one excel file for further processing.
 """
 
 import numpy as np
@@ -89,6 +93,12 @@ columns = inputs + outputs
 
 df = pd.DataFrame(columns=columns, data=np.array(contents))
 
+# # remove samples where one of the discontinuity sets was not stored
+# for i in range(len(df)):
+#     for set_ in [2, 3]:
+#         if df.iloc[i]['set 1 - type'] == 1 and pd.isnull(df.iloc[i][f'meas. spacing set {set_} [m]']) is True:
+#             print(f'{list(df.index)[i]} set: {set_}')
+
 # remove unused input data from discontinuity set 1 which is either a set of
 # planar, finite discontinuities or folded discontinuities
 id_plane = np.where(df['set 1 - type'] == 0)[0]
@@ -104,7 +114,7 @@ df.set_index('identifier', inplace=True)
 
 print('data frame set up')
 # set up empty columns for later population
-for col in ['Minkowski dimension', 'Hausdorff', 'similarity n zeros', 'similarity max',
+for col in ['Minkowski dimension', 'similarity n zeros', 'similarity max',
             'similarity min', 'similarity mean', 'similarity median',
             'structural complexity']:
     df[col] = np.nan
@@ -116,8 +126,6 @@ for sample in df.index:
     try:
         df_boxcount = pd.read_csv(fr'../combinations/{sample}_boxcount.txt')
         df['Minkowski dimension'].loc[sample] = params.Minkowski(
-            df_boxcount['n boxes'], df_boxcount['box edge length [m]'])
-        df['Hausdorff'].loc[sample] = params.Hausdorff(
             df_boxcount['n boxes'], df_boxcount['box edge length [m]'])
         if np.isnan(df['Minkowski dimension'].loc[sample]) == True:
             raise ValueError(f'{sample} has no computed boxes')
@@ -181,9 +189,8 @@ for joint_set in [1, 2, 3, 4]:
 df.drop(['n blocks', 'avg. block volume [m³]', 'max block volume [m³]',
          'min block volume [m³]', 'avg. block edge length [m]',
          'avg. block surface area [m²]', 'a3', 'a2', 'a1',
-         'Hausdorff', 'similarity n zeros', 'similarity max',
-         'similarity min', 'similarity mean', 'similarity median',
-         'structural complexity'],
+         'similarity n zeros', 'similarity max', 'similarity min',
+         'similarity mean', 'similarity median', 'structural complexity'],
         axis=1, inplace=True)
 
 # save to excel file
