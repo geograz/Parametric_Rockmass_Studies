@@ -10,6 +10,9 @@ Samples of discrete discontinuity networks are created with the visual programmi
 ## repository structure
 ```
 Parametric_Rockmass_Studies
+├── dataset
+│   ├── boxcounts.zip                     - zipped folder containing boxcounts as individual txt files to compute the fractal dimension of every sample
+│   ├── PDD1.xlsx                         - excel file that contains sample identifiers, input parameters for sample creation, virtually measured parameters and computed parameters for every sample of the dataset
 ├── src
 │   ├── 00_Cluster.ghcluster              - grasshopper (Rhino) cluster that is used in main grasshopper script
 │   ├── 00_main.gh                        - main grasshopper script that genarates parametric rock mass samples
