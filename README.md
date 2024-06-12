@@ -1,13 +1,15 @@
 # Parametric_Rockmass_Studies
 Repository for the code to do parametric studies on the structure of rockmass.
 
-## methods
+## Methods
 Samples of discrete discontinuity networks are created with the visual programming language "Grasshopper" in the computer aided design software Rhino 3D (https://www.rhino3d.com/). "Virtual measurements" are then taken on these samples and used for further processing and investigation of rock mass parameters.
 
-## publications
-- A first manuscript about this study was submitted to the journal Rock Mechanics and Rock Engineering and is currently under review. Erharter, G.H.: "Rock mass structure characterization considering finite and folded discontinuities"
+## Publications
+A first paper about this study was published in the journal Rock Mechanics and Rock Engineering:
+- Erharter, G.H. Rock Mass Structure Characterization Considering Finite and Folded Discontinuities: A Parametric Study. Rock Mech Rock Eng (2024). [https://doi.org/10.1007/s00603-024-03787-9](https://link.springer.com/article/10.1007/s00603-024-03787-9)
 
-## repository structure
+
+## Repository structure
 ```
 Parametric_Rockmass_Studies
 ├── dataset
@@ -42,5 +44,5 @@ Activate the new environment with:
 conda activate Jv
 ```
 
-### contact
+### Contact
 georg.erharter@ngi.no
