@@ -18,7 +18,7 @@ from X_library import parameters, utilities
 #############################
 # static variables and constants
 
-N_SETS_TO_PROCESS = 142  # max number of sets to process in this run
+N_SETS_TO_PROCESS = 47  # max number of sets to process in this run
 
 TOT_BBOX_SIZE = 10  # total bounding box size [m]
 UNIT_BOX_SIZE = 1  # size of a measurement box [m]
@@ -27,7 +27,7 @@ voxel_size = TOT_BBOX_SIZE / RESOLUTION  # .05
 color = 1
 DICE_THRESH = 0.75  # threshold of dice coefficient that indicates similarity
 # run code for random- or sequential unprocessed samples -> multiprocessing
-MODE = 'sequential'  # 'random', 'sequential'
+MODE = 'random'  # 'random', 'sequential'
 COMPUTE_SIMILARITY = False  # whether or not self similarity should be computed
 
 #############################
@@ -67,12 +67,10 @@ while processed_sets < N_SETS_TO_PROCESS:
     del discontinuities
     print('\tdiscontinuity voxels created')
 
-    boxes_all = o3d.geometry.VoxelGrid.create_dense(width=TOT_BBOX_SIZE,
-                                                    height=TOT_BBOX_SIZE,
-                                                    depth=TOT_BBOX_SIZE,
-                                                    voxel_size=voxel_size,
-                                                    origin=np.array([0, 0, 0]),
-                                                    color=[color, color, color])
+    boxes_all = o3d.geometry.VoxelGrid.create_dense(
+        width=TOT_BBOX_SIZE, height=TOT_BBOX_SIZE, depth=TOT_BBOX_SIZE,
+        voxel_size=voxel_size, origin=np.array([0, 0, 0]),
+        color=[color, color, color])
     print('\toverall voxels created')
 
     combined = boxes_mesh + boxes_all

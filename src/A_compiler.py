@@ -18,7 +18,7 @@ from X_library import parameters
 
 params = parameters()
 
-pd.options.mode.chained_assignment = None
+# pd.options.mode.chained_assignment = None
 
 ##########################################
 # load text files with geometry parameters as outputted by grasshopper
@@ -125,7 +125,7 @@ for col in ['Minkowski dimension', 'similarity n zeros', 'similarity max',
 for sample in df.index:
     try:
         df_boxcount = pd.read_csv(fr'../combinations/{sample}_boxcount.txt')
-        df['Minkowski dimension'].loc[sample] = params.Minkowski(
+        df.loc[sample, 'Minkowski dimension'] = params.Minkowski(
             df_boxcount['n boxes'], df_boxcount['box edge length [m]'])
         if np.isnan(df['Minkowski dimension'].loc[sample]) == True:
             raise ValueError(f'{sample} has no computed boxes')
@@ -155,7 +155,7 @@ for sample in df.index:
             if col == 'structural complexity' and content[i] == 0:
                 remove(fr'../combinations/{sample}_RasterAnalysis.txt')
             else:
-                df[col].loc[sample] = content[i]
+                df.loc[sample, col] = content[i]
 
     except FileNotFoundError:
         pass
@@ -174,12 +174,14 @@ for param in df.columns:
 for joint_set in [1, 2, 3, 4]:
     if joint_set == 4:
         id_0 = np.where(df['random set - n joints'] == 0)[0]
-        df['random set - radius [m]'].iloc[id_0] = np.nan
+        id_0 = df.index[id_0]
+        df.loc[id_0, 'random set - radius [m]'] = np.nan
     else:
         id_0 = np.where(df[f'set {joint_set} - n joints'] == 0)[0]
-        df[f'set {joint_set} - radius [m]'].iloc[id_0] = np.nan
-        df[f'set {joint_set} - dip [°]'].iloc[id_0] = np.nan
-        df[f'set {joint_set} - dip direction [°]'].iloc[id_0] = np.nan
+        id_0 = df.index[id_0]
+        df.loc[id_0, f'set {joint_set} - radius [m]'] = np.nan
+        df.loc[id_0, f'set {joint_set} - dip [°]'] = np.nan
+        df.loc[id_0, f'set {joint_set} - dip direction [°]'] = np.nan
 
 # idx_neg_vol = np.where(df['avg. block volume [m³]'] < 0)[0]
 # df = df.drop(index=idx_neg_vol)
@@ -190,7 +192,7 @@ df.drop(['n blocks', 'avg. block volume [m³]', 'max block volume [m³]',
          'min block volume [m³]', 'avg. block edge length [m]',
          'avg. block surface area [m²]', 'a3', 'a2', 'a1',
          'similarity n zeros', 'similarity max', 'similarity min',
-         'similarity mean', 'similarity median', 'structural complexity'],
+         'similarity mean', 'similarity median'],
         axis=1, inplace=True)
 
 # save to excel file

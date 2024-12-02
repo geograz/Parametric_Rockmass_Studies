@@ -19,6 +19,23 @@ from X_library import plotter, math, parameters, utilities
 # static variables and constants
 ##########################################
 
+input_params_all = ['set 2 - n joints', 'set 2 - radius [m]',
+                    'set 2 - radius std [m]', 'set 2 - dip direction [°]',
+                    'set 2 - dip direction std [°]', 'set 2 - dip [°]',
+                    'set 2 - dip std [°]', 'set 3 - n joints',
+                    'set 3 - radius [m]', 'set 3 - radius std [m]',
+                    'set 3 - dip direction [°]',
+                    'set 3 - dip direction std [°]', 'set 3 - dip [°]',
+                    'set 3 - dip std [°]', 'random set - n joints',
+                    'random set - radius [m]', 'random set - radius std [m]',
+                    'bounding box size [m]', 'Jv boxes edge size [m]']
+input_params_folds = ['F_rand_sin', 'F_rand_n_planes', 'F_rand_angle',
+                      'F_rand_axis_x', 'F_rand_axis_y', 'F_rand_axis_z']
+input_params_planes = ['set 1 - n joints', 'set 1 - radius [m]',
+                       'set 1 - radius std [m]', 'set 1 - dip direction [°]',
+                       'set 1 - dip direction std [°]', 'set 1 - dip [°]',
+                       'set 1 - dip std [°]']
+
 measured = ['meas. spacing set 1 [m]', 'meas. spacing set 2 [m]',
             'meas. spacing set 3 [m]', 'RQD Y', 'RQD X', 'RQD Z',
             'apparent spacing Y [m]', 'apparent spacing X [m]',
@@ -166,7 +183,14 @@ df['block volume computed [m³]'] = params.block_volume_palmstroem(
     beta=df['beta [°]'],
     gamma=df['gamma [°]'])
 
+##########################################
 # save data to excel files
+##########################################
+
+# input for planar samples
+df[df['set 1 - type'] == 0][input_params_planes+input_params_all].describe().to_excel(r'../output/PDD1_stats_inputplanes.xlsx')
+# input for folded samples
+df[df['set 1 - type'] == 1][input_params_folds+input_params_all].describe().to_excel(r'../output/PDD1_stats_inputfolds.xlsx')
 df[measured].describe().to_excel(r'../output/PDD1_stats_measured.xlsx')
 df[computed].describe().to_excel(r'../output/PDD1_stats_computed.xlsx')
 df.to_excel(r'../output/PDD1_1.xlsx')
@@ -174,6 +198,8 @@ df.to_excel(r'../output/PDD1_1.xlsx')
 ##########################################
 # visualizations of the dataset
 ##########################################
+
+pltr.struct_complex_plot(df)
 
 pltr.custom_pairplot(df, plot_params, relation_dic)
 

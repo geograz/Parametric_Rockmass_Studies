@@ -215,7 +215,7 @@ class plotter(utilities):
         ax.legend(loc='upper right')
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/JVs.png', dpi=600)
+        plt.savefig(r'../graphics/JVs.pdf', dpi=600)
         plt.close()
 
     def top_x_barplot(self, values: np.array, labels: np.array, title: str,
@@ -271,7 +271,7 @@ class plotter(utilities):
                 counter += 1
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/pairplot.png', dpi=600)
+        plt.savefig(r'../graphics/pairplot.pdf', dpi=600)
         plt.close()
 
     def scatter_combinations(self, df: pd.DataFrame, relation_dic: dict,
@@ -299,7 +299,7 @@ class plotter(utilities):
                         r2 = round(r2_score(df_tmp[y].values, function_vals),
                                    2)
                         ax.plot(df_tmp[x].values, function_vals, color='black',
-                                label=f'linear fit, r2: {r2}\n{y} = {round(z_1d[0], 3)} * {x} + {round(z_1d[1], 3)}')
+                                label=f'linear fit, r2: {r2}\n{y} = {round(z_1d[0], 6)} * {x} + {round(z_1d[1], 6)}')
 
                     elif [x, y] in relation_dic['exponential']:
                         a, b, c = self.fit_exponential(df_tmp[x].values,
@@ -324,14 +324,14 @@ class plotter(utilities):
                             y_fit = self.power_law(df_tmp[x].values, a, b)
                             r2 = round(r2_score(df_tmp[y].values, y_fit), 2)
                             ax.plot(df_tmp[x].values, y_fit, color='black',
-                                    label=f'powerlaw fit, r2: {r2}\n{y} = {round(a, 3)}*{x}^{round(b, 3)}')
+                                    label=f'powerlaw fit, r2: {r2}\n{y} = {round(a, 6)}*{x}^{round(b, 6)}')
 
                     ax.set_xlabel(x)
                     ax.set_ylabel(y)
                     ax.grid(alpha=0.5)
                     ax.legend()
                     plt.tight_layout()
-                    plt.savefig(fr'../graphics/scatters/{params_dict[x]}_{params_dict[y]}.png', dpi=150)
+                    plt.savefig(fr'../graphics/scatters/{params_dict[x]}_{params_dict[y]}.svg', dpi=150)
                     plt.close()
 
     def RQD_spacing_hist_plot(self, df: pd.DataFrame) -> None:
@@ -345,7 +345,7 @@ class plotter(utilities):
         ax2.set_title('avg. app. spacing [m]')
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/RQD_hist.png', dpi=600)
+        plt.savefig(r'../graphics/RQD_hist.pdf', dpi=600)
         plt.close()
 
     def Pij_plot(self, df: pd.DataFrame, fsize: float = 15) -> None:
@@ -385,7 +385,7 @@ class plotter(utilities):
         fig.text(x=0.065, y=0.75, s='1D', ha='center', fontsize=fsize)
 
         plt.tight_layout(rect=(0.07, 0, 1, 0.93))
-        plt.savefig(r'../graphics/Pij_plot.png', dpi=600)
+        plt.savefig(r'../graphics/Pij_plot.pdf', dpi=600)
         plt.close()
 
     def directional_lineplot(self, df: pd.DataFrame) -> None:
@@ -406,14 +406,14 @@ class plotter(utilities):
             ax.set_xticklabels(['X', 'Y', 'Z'])
             ax.set_ylabel(p.replace('_X', ''))
         plt.tight_layout()
-        plt.savefig(r'../graphics/directional_plot.png', dpi=300)
+        plt.savefig(r'../graphics/directional_plot.pdf', dpi=300)
         plt.close()
 
     def Q_Jv_plot(self, df: pd.DataFrame) -> None:
         x_min, x_max = 0, 125
         y_min, y_max = 0.1, 100
 
-        fig, ax = plt.subplots(figsize=(7, 7))
+        fig, ax = plt.subplots(figsize=(6, 6))
         cax = ax.scatter(df['Jv measured [discs/m³]'], df['Q_struct'],
                          c=df['avg. RQD'], alpha=0.6, vmin=0, vmax=100,
                          zorder=10)
@@ -422,18 +422,18 @@ class plotter(utilities):
         ax.vlines([1, 3, 10, 30, 60], ymin=y_min, ymax=y_max, color='black',
                   zorder=1)
 
-        ax.text(1.1, 0.9, 'very poor', va='top')
-        ax.text(1.1, 3.5, 'poor', va='top')
-        ax.text(1.1, 9, 'fair', va='top')
+        ax.text(1.1, 0.95, 'very poor', va='top')
+        ax.text(1.1, 3.9, 'poor', va='top')
+        ax.text(1.1, 9.5, 'fair', va='top')
         ax.text(1.1, 39, 'good', va='top')
         ax.text(1.1, 99, 'very good', va='top')
 
-        ax.text(0.95, 0.15, 'very large\nblocks', rotation=-90, ha='right')
-        ax.text(2.9, 0.15, 'large blocks', rotation=-90, ha='right')
-        ax.text(9, 0.15, 'medium-sized\nblocks', rotation=-90, ha='right')
-        ax.text(29, 0.15, 'small blocks', rotation=-90, ha='right')
-        ax.text(59, 0.15, 'very small\nblocks', rotation=-90, ha='right')
-        ax.text(99, 0.15, 'crushed rock', rotation=-90, ha='right')
+        ax.text(0.95, 0.11, 'very large\nblocks', rotation=-90, ha='right')
+        ax.text(2.9, 0.11, 'large blocks', rotation=-90, ha='right')
+        ax.text(9, 0.11, 'medium-sized\nblocks', rotation=-90, ha='right')
+        ax.text(29, 0.11, 'small blocks', rotation=-90, ha='right')
+        ax.text(59, 0.11, 'very small\nblocks', rotation=-90, ha='right')
+        ax.text(99, 0.11, 'crushed rock', rotation=-90, ha='right')
 
         ax.set_xscale('log')
         ax.set_yscale('log')
@@ -444,13 +444,15 @@ class plotter(utilities):
         ax.set_xlim(left=x_min, right=x_max)
         ax.set_ylim(bottom=y_min, top=y_max)
         ax.set_xlabel('Jv measured [discs/m³]')
-        ax.set_ylabel('Q structural (RQD/Jn)')
+        ax.set_ylabel('RQD/Jn')
 
         cbar = plt.colorbar(cax)
         cbar.set_label('RQD')
 
         plt.tight_layout()
+        plt.savefig(r'../graphics/Q_Jv_plot.pdf')
         plt.savefig(r'../graphics/Q_Jv_plot.png', dpi=600)
+        plt.savefig(r'../graphics/Q_Jv_plot.svg')
         plt.close()
 
 
@@ -470,7 +472,6 @@ class parameters:
     def Jv_Palmstroem2000(self, spacings1, spacings2, spacings3,
                           n_random, tot_volume):
         '''computes volumetric joint count acc. to Palmstrøm (2000)'''
-        # TODO check if computation is correct!
         set1 = (1/spacings1).fillna(0)
         set2 = (1/spacings2).fillna(0)
         set3 = (1/spacings3).fillna(0)
@@ -601,7 +602,7 @@ class parameters:
         for _ in range(N):
             window_sizes.append(lambda_)
             lambda_ *= 2
-
+        # print(window_sizes)
         # collection of stack of coarsened raster data
         stack = [data]
 
