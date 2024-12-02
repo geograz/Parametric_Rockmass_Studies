@@ -3,7 +3,7 @@
 Code to the paper "Rock mass structure characterization considering finite and
 folded discontinuities"
 Dr. Georg H. Erharter - 2023
-DOI: XXXXXXXXXXX
+DOI: https://doi.org/10.1007/s00603-024-03787-9
 
 Script that performs voxel based boxcounting that is used to estimate each
 samples' fractal dimension.

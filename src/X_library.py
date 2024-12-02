@@ -3,7 +3,7 @@
 Code to the paper "Rock mass structure characterization considering finite and
 folded discontinuities"
 Dr. Georg H. Erharter - 2023
-DOI: XXXXXXXXXXX
+DOI: https://doi.org/10.1007/s00603-024-03787-9
 
 Script that contains a custom library with different classes of functions for
 math, plotting or general use (utilities).
@@ -451,8 +451,6 @@ class plotter(utilities):
 
         plt.tight_layout()
         plt.savefig(r'../graphics/Q_Jv_plot.pdf')
-        plt.savefig(r'../graphics/Q_Jv_plot.png', dpi=600)
-        plt.savefig(r'../graphics/Q_Jv_plot.svg')
         plt.close()
 
 

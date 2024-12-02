@@ -3,7 +3,7 @@
 Code to the paper "Rock mass structure characterization considering finite and
 folded discontinuities"
 Dr. Georg H. Erharter - 2023
-DOI: XXXXXXXXXXX
+DOI: https://doi.org/10.1007/s00603-024-03787-9
 
 Script that compiles the recorded data from samples of the discrete
 discontinuity networks and creates one excel file for further processing.

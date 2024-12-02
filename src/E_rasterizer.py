@@ -2,7 +2,7 @@
 """
 Experimental code to the paper XXXX
 Dr. Georg H. Erharter - 2023
-DOI: XXXXXXXXXXX
+DOI: https://doi.org/10.1007/s00603-024-03787-9
 
 Script that performs different raster based analyses on the dataset
 (results not included in first paper).

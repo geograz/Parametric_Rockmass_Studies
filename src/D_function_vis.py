@@ -3,7 +3,7 @@
 Code to the paper "Rock mass structure characterization considering finite and
 folded discontinuities"
 Dr. Georg H. Erharter - 2023
-DOI: XXXXXXXXXXX
+DOI: https://doi.org/10.1007/s00603-024-03787-9
 
 Script that generates specific plots for publications.
 """
@@ -203,6 +203,5 @@ ax2_m.set_ylabel('RQD')
 ax2_m.legend(loc='upper right')
 
 plt.tight_layout()
-plt.savefig(r'../graphics/relationships_selected.svg', dpi=600)
+plt.savefig(r'../graphics/relationships_selected.pdf', dpi=600)
 plt.close()
-
