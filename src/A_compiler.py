@@ -150,7 +150,7 @@ for sample in df.index:
 n_processed = len(df) - df['Minkowski dimension'].isna().sum()
 print(f'{n_processed} / {len(df)} fractal dimensions computed')
 
-# structural complexity
+# # compute structural complexity acc. to Bagrov et al. (2020)
 for sample in df.index:
     fp = fr'..\rasters\{sample}_0.05.pkl.gz'
     try:

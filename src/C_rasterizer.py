@@ -5,7 +5,8 @@ Dr. Georg H. Erharter - 2023
 DOI: https://doi.org/10.1007/s00603-024-03787-9
 
 Script that loads meshes and transforms them into rasters at different
-resolution for further analyses.
+resolution for further analyses. Does not include raster analyses.
+Only generation.
 (results not included in first paper).
 """
 import gzip
@@ -21,7 +22,7 @@ from X_library import parameters, utilities
 #############################
 # static variables and constants
 
-N_SETS_TO_PROCESS = 15  # max number of sets to process in this run
+N_SETS_TO_PROCESS = 200  # max number of sets to process in this run
 TOT_BBOX_SIZE = 10  # total bounding box size [m]
 RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]  # 3D grid resolution
 SAVE_CSV = False
@@ -59,7 +60,7 @@ while processed_sets < N_SETS_TO_PROCESS:
     if MODE == 'random':
         set_id = np.random.choice(ids_unprocessed, size=1)[0]
     elif MODE == 'sequential':
-        set_id = ids_unprocessed[0]
+        set_id = ids_unprocessed[2]
 
     name = names[set_id]
 
@@ -104,15 +105,7 @@ while processed_sets < N_SETS_TO_PROCESS:
             with gzip.open(fr'../rasters/{name}.pkl.gz', 'wb') as f:
                 pickle.dump(discontinuity_array, f)
             print('\tzip voxels saved')
-    
-        # # compute structural complexity acc. to Bagrov et al. (2020)
-        # c = params.structural_complexity(discontinuity_array, mode='3Dgrid')
-        # del discontinuity_array
-        # gc.collect()
-        # print(f'\tstructural complexity: {round(c, 3)}')
-    
-        # with open(fr'../combinations/{name}', 'w') as f:
-        #     f.write(f'{c}')
+
         print(f'\t{name} finished')
     except MemoryError:
         pass

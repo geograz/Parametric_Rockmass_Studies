@@ -16,7 +16,6 @@ from skimage.transform import resize
 from skimage.measure import block_reduce
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import MinMaxScaler
-import warnings
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -29,6 +28,7 @@ class math:
         pass
 
     def unit_vector(self, vector):
+        '''compute the unit vector of another vector'''
         return vector / np.linalg.norm(vector, axis=1)[:, None]
 
     def angle_between(self, v1, v2):
@@ -52,99 +52,6 @@ class utilities:
 
     def __init__(self):
         self.sclr = MinMaxScaler()
-
-    def cust_dropna(self, df):
-        df.replace([np.inf, -np.inf], np.nan, inplace=True)
-        df.dropna(inplace=True)
-        return df
-
-    def convert_inf(self, x: np.array) -> np.array:
-        '''function converts all positive and negative infinites to np.nan'''
-        return np.where((x == np.inf) | (x == -np.inf), np.nan, x)
-
-    def assess_fit2(self, x: np.array, y: np.array,
-                    scale_indiv: bool = False) -> float:
-        '''Function assesses how well two sets of parameters fit to each other.
-        Assessment is done based on the R2 score. Parameters can be scaled to
-        the target or not, depending on the parameter.'''
-
-        y = self.convert_inf(y)
-        if np.isnan(y).sum() == 0:
-            x = self.sclr.fit_transform(x.reshape(-1, 1))
-            if scale_indiv is False:
-                y = self.sclr.transform(y.reshape(-1, 1))
-            else:
-                y = self.sclr.fit_transform(y.reshape(-1, 1))
-            x = self.convert_inf(x)
-            y = self.convert_inf(y)
-            if np.isnan(x).sum() > 0 or np.isnan(y).sum() > 0:
-                pass
-            else:
-                warnings.filterwarnings('ignore')
-                score = r2_score(x, y)
-            return score
-
-    def assess_fit(self, df, x, y, dropna=True, scale_indiv=False):
-        warnings.filterwarnings('ignore')
-        df_1 = df[[x, y]]
-        if dropna is True:
-            df_1 = self.cust_dropna(df_1)
-        if len(df_1) < 100:
-            score = 2
-        else:
-            df_1['x_new'] = self.sclr.fit_transform(df_1[x].values.reshape(-1, 1))
-            if scale_indiv is False:
-                df_1['y_new'] = self.sclr.transform(df_1[y].values.reshape(-1, 1))
-            else:
-                df_1['y_new'] = self.sclr.fit_transform(df_1[y].values.reshape(-1, 1))
-            df_1 = self.cust_dropna(df_1)
-            if len(df_1) < 100:
-                score = 2
-            else:
-                score = r2_score(df_1['x_new'], df_1['y_new'])
-        return score
-
-    def assess_fits(self, df: pd.DataFrame, features: list,
-                    targets: list) -> list:
-        scores = []
-
-        n_features = len(features)
-        for t in targets:
-            print(f'compute {n_features} scores for {t}')
-            if t == 'Jv measured [discs/m³]':
-                scale_indiv = False
-            else:
-                scale_indiv = True
-            scores_temp = []
-            for i, f in enumerate(features):
-                scores_temp.append(self.assess_fit(df, x=t, y=f, dropna=True,
-                                                   scale_indiv=scale_indiv))
-            scores.append(np.array(scores_temp))
-
-        return scores
-
-    def get_best_feature(self, scores, features):
-        id_fails = np.where(scores == 2)[0]
-        scores = np.delete(scores, id_fails)
-        all_features_new = np.delete(np.array(features), id_fails)
-
-        feature_max_score = all_features_new[np.argmax(scores)]
-        return feature_max_score, max(scores)
-
-    def voxel2grid(self, voxels, RESOLUTION, color):
-        '''function converts an open3d voxel grid into a structured 3D raster
-        numpy array'''
-        voxels = voxels.get_voxels()
-        indices = np.stack(list(vx.grid_index for vx in voxels)).astype('int16')
-        colors = np.stack(list(vx.color for vx in voxels)).astype('int8')
-        # crop voxels to the bounding box
-        id_valid = np.where((np.min(indices, axis=1) >= 0) &
-                            (np.max(indices, axis=1) < RESOLUTION))[0]
-        indices = indices[id_valid]
-        colors = colors[id_valid]
-        intersecting = np.where(np.sum(colors, axis=1) == color*3, -1, 1)
-        idx = np.lexsort((indices[:,0], indices[:,1], indices[:,2])).reshape(RESOLUTION, RESOLUTION, RESOLUTION)
-        return intersecting[idx]
 
     def power_law(self, x, a, b):
         return a * np.power(x, b)
@@ -187,6 +94,26 @@ class plotter(utilities):
     def __init__(self):
         pass
 
+    def struct_complex_plot(self, df: pd.DataFrame) -> None:
+        '''function plots structural complexity against different other
+        parameters'''
+        fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(6, 9))
+        ax1.scatter(df['Jv measured [discs/m³]'], df['structural complexity'],
+                    alpha=0.5, color='black', edgecolor='grey')
+        ax1.set_xlabel('Jv measured [discs/m³]')
+        ax1.set_ylabel('structural complexity')
+        ax1.grid(alpha=0.5)
+
+        ax2.scatter(df['avg. P21'], df['structural complexity'],
+                    alpha=0.5, color='black', edgecolor='grey')
+        ax2.set_xlabel('avg. P21')
+        ax2.set_ylabel('structural complexity')
+        ax2.grid(alpha=0.5)
+
+        plt.tight_layout()
+        plt.savefig(r'../graphics/struct_new.png', dpi=300)
+        plt.close()
+
     def Jv_plot(self, df: pd.DataFrame, Jv_s: list,
                 limit: float = 100) -> None:
         '''figure that scatters different versions of the computed volumetric
@@ -217,20 +144,6 @@ class plotter(utilities):
         plt.tight_layout()
         plt.savefig(r'../graphics/JVs.pdf', dpi=600)
         plt.close()
-
-    def top_x_barplot(self, values: np.array, labels: np.array, title: str,
-                      n_show: int = 10) -> None:
-        '''barplot that visualizes the highest scoring values of feature
-        engineering'''
-        fig, ax = plt.subplots(figsize=(16, 9))
-        ax.bar(x=np.arange(n_show), height=values[:n_show])
-        ax.set_xticks(np.arange(n_show))
-        ax.set_xticklabels(labels[:n_show],
-                           horizontalalignment='right', rotation=40)
-        ax.grid(alpha=0.5)
-        ax.set_xlabel(f'{n_show} highest values')
-        ax.set_title(title)
-        plt.tight_layout()
 
     def custom_pairplot(self, df: pd.DataFrame, plot_params: list,
                         relation_dic: dict, fsize: float = 7) -> None:
@@ -576,6 +489,9 @@ class parameters:
         return Jn_s
 
     def Minkowski(self, n_boxes, box_sizes):
+        '''compute the Minkowski–Bouligand dimension as a parameter for fractal
+        dimensions.
+        https://en.wikipedia.org/wiki/Minkowski%E2%80%93Bouligand_dimension'''
         N_ = np.log(n_boxes)
         eps_ = np.log(1/box_sizes)
         return np.polyfit(eps_, N_, 1)[0]
@@ -585,7 +501,7 @@ class parameters:
         return arr1[:, :, 0] * arr2[:, :, 0] + arr1[:, :, 1] * arr2[:, :, 1] + arr1[:, :, 2] * arr2[:, :, 2]
 
     def structural_complexity(self, data, lambda_=2, N=None, mode='image'):
-
+        '''function computes the structural complexity of raster data'''
         if N == None:
             # compute max. possible split with given data resolution
             res = data.shape[0]
