@@ -9,16 +9,18 @@ Script that compiles the recorded data from samples of the discrete
 discontinuity networks and creates one excel file for further processing.
 """
 
+import gzip
 import numpy as np
 from os import listdir, remove
 import pandas as pd
+import pickle
 
 from X_library import parameters
 
 
-params = parameters()
+RASTER_RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]
 
-# pd.options.mode.chained_assignment = None
+params = parameters()
 
 ##########################################
 # load text files with geometry parameters as outputted by grasshopper
@@ -114,49 +116,49 @@ df.set_index('identifier', inplace=True)
 
 print('data frame set up')
 # set up empty columns for later population
-for col in ['Minkowski dimension', 'similarity n zeros', 'similarity max',
-            'similarity min', 'similarity mean', 'similarity median',
-            'structural complexity']:
+columns_boxcount = [f'n boxes at {res} [m]' for res in RASTER_RESOLUTIONS]
+for col in columns_boxcount + ['Minkowski dimension', 'structural complexity']:
     df[col] = np.nan
 
 ##########################################
-# add fractal dimensions where they are computed
+# raster analyses
+
+# add boxcounts where they are computed
 
 for sample in df.index:
+    for resolution in RASTER_RESOLUTIONS:
+        fp = fr'..\rasters\{sample}_{resolution}.pkl.gz'
+        try:
+            with gzip.open(fp, 'rb') as f:
+                decompressed_voxel_array = pickle.load(f)
+            n_boxes = np.unique(decompressed_voxel_array,
+                                return_counts=True)[1][1]
+            df.loc[sample, f'n boxes at {resolution} [m]'] = n_boxes
+
+        except FileNotFoundError:
+            pass
+
+# compute fractal dimensions
+for sample in df.index:
     try:
-        df_boxcount = pd.read_csv(fr'../combinations/{sample}_boxcount.txt')
         df.loc[sample, 'Minkowski dimension'] = params.Minkowski(
-            df_boxcount['n boxes'], df_boxcount['box edge length [m]'])
-        if np.isnan(df['Minkowski dimension'].loc[sample]) == True:
-            raise ValueError(f'{sample} has no computed boxes')
-    except FileNotFoundError:
+            df.loc[sample, columns_boxcount].values.astype(int),
+            np.array(RASTER_RESOLUTIONS))
+    except ValueError:
         pass
 
 n_processed = len(df) - df['Minkowski dimension'].isna().sum()
 print(f'{n_processed} / {len(df)} fractal dimensions computed')
 
-##########################################
-# add similarity and structural complexity information where it is computed
-
+# structural complexity
 for sample in df.index:
+    fp = fr'..\rasters\{sample}_0.05.pkl.gz'
     try:
-        with open(fr'../combinations/{sample}_RasterAnalysis.txt', 'r') as f:
-            content = []
-            for v in f.read().split(','):
-                if v == 'nan' or v == "nan":
-                    content.append(np.nan)
-                else:
-                    content.append(eval(v))
-
-        for i, col in enumerate(['similarity n zeros', 'similarity max',
-                                 'similarity min', 'similarity mean',
-                                 'similarity median',
-                                 'structural complexity']):
-            if col == 'structural complexity' and content[i] == 0:
-                remove(fr'../combinations/{sample}_RasterAnalysis.txt')
-            else:
-                df.loc[sample, col] = content[i]
-
+        with gzip.open(fp, 'rb') as f:
+            decompressed_voxel_array = pickle.load(f)
+        c = params.structural_complexity(decompressed_voxel_array,
+                                         mode='3Dgrid')
+        df.loc[sample, 'structural complexity'] = c
     except FileNotFoundError:
         pass
 

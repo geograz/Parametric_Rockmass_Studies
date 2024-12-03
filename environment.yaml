@@ -3,16 +3,16 @@ channels:
 - conda-forge
 - defaults
 dependencies:
-- python=3.11
+- python=3.12
 - matplotlib
 - numpy
 - pandas
 - pip
 - scikit-image
 - scikit-learn=1.5
-- spyder-kernels=2.5
+- spyder-kernels=3.0
 - tqdm
+- trimesh
 - pip:
-  - open3d==0.18
   - pyarrow
   - openpyxl
