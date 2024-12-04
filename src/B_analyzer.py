@@ -9,54 +9,27 @@ Script that processes the compiled records of the discrete discontinuity
 dataset, computes new parameters and creates figures to visualize the dataset.
 """
 
+import gzip
 import numpy as np
 import pandas as pd
+import pickle
+from scipy.stats import entropy
+from tqdm import tqdm
+import zlib
 
-from X_library import plotter, math, parameters, utilities
+from X_library import plotter, math, parameters
 
 
 ##########################################
 # static variables and constants
 ##########################################
 
-input_params_all = ['set 2 - n joints', 'set 2 - radius [m]',
-                    'set 2 - radius std [m]', 'set 2 - dip direction [°]',
-                    'set 2 - dip direction std [°]', 'set 2 - dip [°]',
-                    'set 2 - dip std [°]', 'set 3 - n joints',
-                    'set 3 - radius [m]', 'set 3 - radius std [m]',
-                    'set 3 - dip direction [°]',
-                    'set 3 - dip direction std [°]', 'set 3 - dip [°]',
-                    'set 3 - dip std [°]', 'random set - n joints',
-                    'random set - radius [m]', 'random set - radius std [m]',
-                    'bounding box size [m]', 'Jv boxes edge size [m]']
-input_params_folds = ['F_rand_sin', 'F_rand_n_planes', 'F_rand_angle',
-                      'F_rand_axis_x', 'F_rand_axis_y', 'F_rand_axis_z']
-input_params_planes = ['set 1 - n joints', 'set 1 - radius [m]',
-                       'set 1 - radius std [m]', 'set 1 - dip direction [°]',
-                       'set 1 - dip direction std [°]', 'set 1 - dip [°]',
-                       'set 1 - dip std [°]']
+RASTER_RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]
 
-measured = ['meas. spacing set 1 [m]', 'meas. spacing set 2 [m]',
-            'meas. spacing set 3 [m]', 'RQD Y', 'RQD X', 'RQD Z',
-            'apparent spacing Y [m]', 'apparent spacing X [m]',
-            'apparent spacing Z [m]', 'P10 Y', 'P10 X', 'P10 Z', 'P20 X',
-            'P21 X', 'P20 Y', 'P21 Y', 'P20 Z', 'P21 Z',
-            'Jv measured [discs/m³]', 'P32', 'set 1 total area [m2]',
-            'set 2 total area [m2]', 'set 3 total area [m2]',
-            'random set total area [m2]', 'Minkowski dimension']
-computed = ['avg. P10', 'avg. P20', 'avg. P21', 'avg. app. spacing [m]',
-            'avg. RQD', 'Jv ISO 14689 (2019)', 'Jv Palmstrøm (2000)',
-            'Jv Sonmez & Ulusay (1999) 1', 'Jv Sonmez & Ulusay (1999) 2',
-            'Jv Erharter (2023)', 'tot disc. area [m2]', 'set_1_ratio',
-            'set_2_ratio', 'set_3_ratio', 'rand_set_ratio', 'n_discs',
-            'Qsys_Jn', 'Q_struct', 'avg. disc. set spacing [m]',
-            'Jv Sonmez & Ulusay (2002)', 'alpha [°]', 'beta [°]', 'gamma [°]',
-            'block volume computed [m³]']
-
-plot_params = ['avg. P10', 'avg. P20', 'avg. P21', 'P32',
+PLOT_PARAMS = ['avg. P10', 'avg. P20', 'avg. P21', 'P32',
                'Jv measured [discs/m³]', 'avg. RQD', 'Minkowski dimension']
 
-relation_dic = {'linear':
+RELATION_DIC = {'linear':
                 [['avg. P10', 'avg. P21'], ['avg. P21', 'avg. P10'],
                  ['avg. P21', 'P32'], ['P32', 'avg. P21'],
                  ['avg. P10', 'P32'], ['P32', 'avg. P10'],
@@ -91,7 +64,6 @@ relation_dic = {'linear':
 pltr = plotter()
 m = math()
 params = parameters()
-utils = utilities()
 
 pd.options.mode.chained_assignment = None
 
@@ -100,12 +72,11 @@ df = pd.read_excel(r'../output/PDD1_0.xlsx', index_col='identifier')
 id_JV_max = df['Jv measured [discs/m³]'].argmax()
 id_JV_min = df['Jv measured [discs/m³]'].argmin()
 
-print(df['Jv measured [discs/m³]'].describe())
 print(f'sample with lowest JV: {df.index[id_JV_min]}')
 print(f'sample with highest JV: {df.index[id_JV_max]}')
 
 ##########################################
-# compute dirreferent additional parameters
+# compute "classical" rock engineering parameters
 ##########################################
 
 # compute average values of directionally dependent measurements
@@ -182,28 +153,75 @@ df['block volume computed [m³]'] = params.block_volume_palmstroem(
     alpha=df['alpha [°]'],
     beta=df['beta [°]'],
     gamma=df['gamma [°]'])
+print('standard rock mass characterization parameters computed\n')
+
+##########################################
+# compute advanced raster analyses parameters
+##########################################
+
+# add new empty columns
+cols_other = ['Minkowski dimension', 'structural complexity',
+              'compression ratio']
+for col in cols_other:
+    df[col] = np.nan
+
+# compute fractal dimensions
+print('computing fractal dimensions')
+cols_disc_voxels = [c for c in df.columns if 'n disc. voxels' in c]
+for sample in tqdm(df.index):
+    if df.loc[sample, cols_disc_voxels].isna().sum() == 0:
+        df.loc[sample, 'Minkowski dimension'] = params.Minkowski(
+            df.loc[sample, cols_disc_voxels].values.astype(int),
+            np.array(RASTER_RESOLUTIONS))
+
+n_processed = len(df) - df['Minkowski dimension'].isna().sum()
+print(f'{n_processed} / {len(df)} fractal dimensions computed')
+
+# compute Shannon entropy
+Shannon_cols = ['n empty voxels at 0.05 [m]', 'n disc. voxels at 0.05 [m]']
+counts = df[Shannon_cols].values
+df['Shannon entropy'] = entropy(counts, base=2, axis=1)
+print('Shannon entropy computed\n')
+
+# compute complexity metrics
+print('computing complexity metrices')
+for sample in tqdm(df.index):
+    fp = fr'..\rasters\{sample}_0.05.pkl.gz'
+    try:
+        with gzip.open(fp, 'rb') as f:
+            decompressed_voxel_array = pickle.load(f)
+        # structural complexity acc. to Bagrov et al. (2020)
+        c = params.structural_complexity(decompressed_voxel_array,
+                                         mode='3Dgrid')
+        df.loc[sample, 'structural complexity'] = c
+        # compression complexity
+        flattened = decompressed_voxel_array.flatten()
+        byte_data = flattened.tobytes()  # Convert to bytes for compression
+        compressed_data = zlib.compress(byte_data)  # Compress the byte data
+        compression_ratio = len(compressed_data) / len(byte_data)
+        df.loc[sample, 'compression ratio'] = compression_ratio
+    except FileNotFoundError:
+        pass
+
+n_processed = len(df) - df['structural complexity'].isna().sum()
+print(f'{n_processed} / {len(df)} complexities computed\n')
 
 ##########################################
 # save data to excel files
 ##########################################
 
-# input for planar samples
-df[df['set 1 - type'] == 0][input_params_planes+input_params_all].describe().to_excel(r'../output/PDD1_stats_inputplanes.xlsx')
-# input for folded samples
-df[df['set 1 - type'] == 1][input_params_folds+input_params_all].describe().to_excel(r'../output/PDD1_stats_inputfolds.xlsx')
-df[measured].describe().to_excel(r'../output/PDD1_stats_measured.xlsx')
-df[computed].describe().to_excel(r'../output/PDD1_stats_computed.xlsx')
 df.to_excel(r'../output/PDD1_1.xlsx')
+print('data saved -> plotting\n')
 
 ##########################################
 # visualizations of the dataset
 ##########################################
 
-pltr.struct_complex_plot(df)
+pltr.struct_complex_plot(df, close=True)
 
-pltr.custom_pairplot(df, plot_params, relation_dic)
+pltr.custom_pairplot(df, PLOT_PARAMS, RELATION_DIC)
 
-pltr.scatter_combinations(df, relation_dic, plot_params)
+pltr.scatter_combinations(df, RELATION_DIC, PLOT_PARAMS)
 
 pltr.Q_Jv_plot(df)
 
@@ -216,6 +234,5 @@ pltr.RQD_spacing_hist_plot(df)
 JVs = ['Jv ISO 14689 (2019)', 'Jv Palmstrøm (2000)',
        'Jv Sonmez & Ulusay (1999) 1', 'Jv Sonmez & Ulusay (1999) 2',
        'Jv Sonmez & Ulusay (2002)', 'Jv Erharter (2023)']
-
 pltr.Jv_plot(df, Jv_s=JVs,
              limit=df['Jv measured [discs/m³]'].max()+5)

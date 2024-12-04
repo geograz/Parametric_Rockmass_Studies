@@ -94,25 +94,28 @@ class plotter(utilities):
     def __init__(self):
         pass
 
-    def struct_complex_plot(self, df: pd.DataFrame) -> None:
+    def struct_complex_plot(self, df: pd.DataFrame,
+                            close: bool = True) -> None:
         '''function plots structural complexity against different other
         parameters'''
-        fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(6, 9))
-        ax1.scatter(df['Jv measured [discs/m³]'], df['structural complexity'],
-                    alpha=0.5, color='black', edgecolor='grey')
-        ax1.set_xlabel('Jv measured [discs/m³]')
-        ax1.set_ylabel('structural complexity')
-        ax1.grid(alpha=0.5)
+        def add_scatter(ax, x, y):
+            ax.scatter(df[x], df[y], alpha=0.5, color='black',
+                       edgecolor='grey')
+            ax.set_xlabel(x)
+            ax.set_ylabel(y)
+            ax.grid(alpha=0.5)
 
-        ax2.scatter(df['avg. P21'], df['structural complexity'],
-                    alpha=0.5, color='black', edgecolor='grey')
-        ax2.set_xlabel('avg. P21')
-        ax2.set_ylabel('structural complexity')
-        ax2.grid(alpha=0.5)
+        fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(9, 9))
+
+        add_scatter(axs[0, 0], 'P32', 'structural complexity')
+        add_scatter(axs[0, 1], 'P32', 'Shannon entropy')
+        add_scatter(axs[1, 0], 'P32', 'compression ratio')
+        add_scatter(axs[1, 1], 'P32', 'Minkowski dimension')
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/struct_new.png', dpi=300)
-        plt.close()
+        plt.savefig(r'../output/graphics/struct_new.png', dpi=300)
+        if close is True:
+            plt.close()
 
     def Jv_plot(self, df: pd.DataFrame, Jv_s: list,
                 limit: float = 100) -> None:
@@ -142,7 +145,7 @@ class plotter(utilities):
         ax.legend(loc='upper right')
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/JVs.pdf', dpi=600)
+        plt.savefig(r'../output/graphics/JVs.pdf', dpi=600)
         plt.close()
 
     def custom_pairplot(self, df: pd.DataFrame, plot_params: list,
@@ -184,7 +187,7 @@ class plotter(utilities):
                 counter += 1
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/pairplot.pdf', dpi=600)
+        plt.savefig(r'../output/graphics/pairplot.pdf', dpi=600)
         plt.close()
 
     def scatter_combinations(self, df: pd.DataFrame, relation_dic: dict,
@@ -244,7 +247,7 @@ class plotter(utilities):
                     ax.grid(alpha=0.5)
                     ax.legend()
                     plt.tight_layout()
-                    plt.savefig(fr'../graphics/scatters/{params_dict[x]}_{params_dict[y]}.svg', dpi=150)
+                    plt.savefig(fr'../output/graphics/scatters/{params_dict[x]}_{params_dict[y]}.svg', dpi=150)
                     plt.close()
 
     def RQD_spacing_hist_plot(self, df: pd.DataFrame) -> None:
@@ -258,7 +261,7 @@ class plotter(utilities):
         ax2.set_title('avg. app. spacing [m]')
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/RQD_hist.pdf', dpi=600)
+        plt.savefig(r'../output/graphics/RQD_hist.pdf', dpi=600)
         plt.close()
 
     def Pij_plot(self, df: pd.DataFrame, fsize: float = 15) -> None:
@@ -298,7 +301,7 @@ class plotter(utilities):
         fig.text(x=0.065, y=0.75, s='1D', ha='center', fontsize=fsize)
 
         plt.tight_layout(rect=(0.07, 0, 1, 0.93))
-        plt.savefig(r'../graphics/Pij_plot.pdf', dpi=600)
+        plt.savefig(r'../output/graphics/Pij_plot.pdf', dpi=600)
         plt.close()
 
     def directional_lineplot(self, df: pd.DataFrame) -> None:
@@ -319,7 +322,7 @@ class plotter(utilities):
             ax.set_xticklabels(['X', 'Y', 'Z'])
             ax.set_ylabel(p.replace('_X', ''))
         plt.tight_layout()
-        plt.savefig(r'../graphics/directional_plot.pdf', dpi=300)
+        plt.savefig(r'../output/graphics/directional_plot.pdf', dpi=300)
         plt.close()
 
     def Q_Jv_plot(self, df: pd.DataFrame) -> None:
@@ -363,7 +366,7 @@ class plotter(utilities):
         cbar.set_label('RQD')
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/Q_Jv_plot.pdf')
+        plt.savefig(r'../output/graphics/Q_Jv_plot.pdf')
         plt.close()
 
 
@@ -553,3 +556,11 @@ class parameters:
         # compute structural complexity
         complexity = sum(overlaps)
         return complexity
+
+    def Shannon_Entropy(self):
+        pass
+
+
+
+
+

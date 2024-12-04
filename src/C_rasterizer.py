@@ -22,7 +22,7 @@ from X_library import parameters, utilities
 #############################
 # static variables and constants
 
-N_SETS_TO_PROCESS = 200  # max number of sets to process in this run
+N_SETS_TO_PROCESS = 1000  # max number of sets to process in this run
 TOT_BBOX_SIZE = 10  # total bounding box size [m]
 RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]  # 3D grid resolution
 SAVE_CSV = False
@@ -47,20 +47,19 @@ for id_ in ids:
 #############################
 # main loop
 
-# TODO set code up so that it only creates rasters at different resolutions
-# TODO make separate script for raster analysis including complexity measures & fractal dimensions
+if MODE == 'sequential':
+    already_processed = [ap.replace('.pkl.gz', '') for ap in listdir(r'../rasters') if '.pkl.gz' in ap]
+    ids_unprocessed = np.where(np.isin(names, already_processed) == False)[0]
+    sequential_counter = 0
+    set_id = ids_unprocessed[sequential_counter]
 
 processed_sets = 0
 while processed_sets < N_SETS_TO_PROCESS:
 
-    already_processed = [ap.replace('.pkl.gz', '') for ap in listdir(r'../rasters') if '.pkl.gz' in ap]
-
-    ids_unprocessed = np.where(np.isin(names, already_processed) == False)[0]
-
     if MODE == 'random':
+        already_processed = [ap.replace('.pkl.gz', '') for ap in listdir(r'../rasters') if '.pkl.gz' in ap]
+        ids_unprocessed = np.where(np.isin(names, already_processed) == False)[0]
         set_id = np.random.choice(ids_unprocessed, size=1)[0]
-    elif MODE == 'sequential':
-        set_id = ids_unprocessed[2]
 
     name = names[set_id]
 
@@ -81,7 +80,7 @@ while processed_sets < N_SETS_TO_PROCESS:
         del discontinuity_voxels
         gc.collect()
         print('\tdiscontinuity grid created')
-    
+
         if SAVE_CSV is True:
             n = discontinuity_array.shape[0]
             x = np.arange(0, n * resolution, resolution)
@@ -94,13 +93,13 @@ while processed_sets < N_SETS_TO_PROCESS:
             z_flat = Z.ravel()
             data_flat = discontinuity_array.ravel()
             output = np.column_stack((x_flat, y_flat, z_flat, data_flat))
-    
+
             df = pd.DataFrame(data=output, columns=['x', 'y', 'z', 'v'])
             df = df.astype({'x': 'float16', 'y': 'float16', 'z': 'float16',
                             'v': 'int8'})
             df.to_csv(fr'../rasters/{name}.csv', index=False)
             print('\tcsv voxels saved')
-    
+
         if SAVE_ZIP is True:
             with gzip.open(fr'../rasters/{name}.pkl.gz', 'wb') as f:
                 pickle.dump(discontinuity_array, f)
@@ -109,6 +108,10 @@ while processed_sets < N_SETS_TO_PROCESS:
         print(f'\t{name} finished')
     except MemoryError:
         pass
+
+    if MODE == 'sequential':
+        sequential_counter += 1
+        set_id = ids_unprocessed[sequential_counter]
 
     processed_sets += 1
 
