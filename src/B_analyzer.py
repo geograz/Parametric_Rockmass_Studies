@@ -14,10 +14,11 @@ import numpy as np
 import pandas as pd
 import pickle
 from scipy.stats import entropy
+from sklearn.decomposition import PCA
 from tqdm import tqdm
 import zlib
 
-from X_library import plotter, math, parameters
+from X_library import plotter, math, parameters, utilities
 
 
 ##########################################
@@ -25,6 +26,7 @@ from X_library import plotter, math, parameters
 ##########################################
 
 RASTER_RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]
+SAVE_BLOCKS = False  # whether or not rastered block models should be saved
 
 PLOT_PARAMS = ['avg. P10', 'avg. P20', 'avg. P21', 'P32',
                'Jv measured [discs/m³]', 'avg. RQD', 'Minkowski dimension']
@@ -64,6 +66,7 @@ RELATION_DIC = {'linear':
 pltr = plotter()
 m = math()
 params = parameters()
+utils = utilities()
 
 pd.options.mode.chained_assignment = None
 
@@ -161,7 +164,9 @@ print('standard rock mass characterization parameters computed\n')
 
 # add new empty columns
 cols_other = ['Minkowski dimension', 'structural complexity',
-              'compression ratio']
+              'compression ratio', 'n blocks', 'avg. block volume [m3]',
+              # 'lacunarity 0.15 m', 'lacunarity 0.25 m', 'lacunarity 0.5 m'
+              'median block volume [m3]']
 for col in cols_other:
     df[col] = np.nan
 
@@ -183,23 +188,62 @@ counts = df[Shannon_cols].values
 df['Shannon entropy'] = entropy(counts, base=2, axis=1)
 print('Shannon entropy computed\n')
 
-# compute complexity metrics
-print('computing complexity metrices')
+# compute complexity and block metrics
+print('computing complexity metrices and blocks')
+resolution = RASTER_RESOLUTIONS[-1]  # -1 = finest resolution
 for sample in tqdm(df.index):
     fp = fr'..\rasters\{sample}_0.05.pkl.gz'
     try:
         with gzip.open(fp, 'rb') as f:
             decompressed_voxel_array = pickle.load(f)
+
         # structural complexity acc. to Bagrov et al. (2020)
         c = params.structural_complexity(decompressed_voxel_array,
                                          mode='3Dgrid')
         df.loc[sample, 'structural complexity'] = c
+
         # compression complexity
         flattened = decompressed_voxel_array.flatten()
         byte_data = flattened.tobytes()  # Convert to bytes for compression
         compressed_data = zlib.compress(byte_data)  # Compress the byte data
         compression_ratio = len(compressed_data) / len(byte_data)
         df.loc[sample, 'compression ratio'] = compression_ratio
+
+        # # lacunarity
+        # box_sizes = [3, 6, 9]
+        # lacunarity_values = params.compute_lacunarity(
+        #     decompressed_voxel_array, box_sizes, 0.05)
+        # df.loc[sample, 'lacunarity 0.15 m'] = lacunarity_values['0.15 m']
+        # df.loc[sample, 'lacunarity 0.3 m'] = lacunarity_values['0.3 m']
+        # df.loc[sample, 'lacunarity 0.45 m'] = lacunarity_values['0.45 m']
+
+        # block analyses, basic parameters should be robust, rest experimental
+        # TODO implement block sieve curve and DXX parameters
+        block_array, num_blocks = utils.identify_intact_rock_regions(
+            decompressed_voxel_array)
+
+        df.loc[sample, 'n blocks'] = num_blocks - 1  # without discontinuities
+
+        block_ids, voxels_per_block = np.unique(block_array,
+                                                return_counts=True)
+        m3_per_block = voxels_per_block[1:] * (resolution**3)
+        df.loc[sample, 'avg. block volume [m3]'] = m3_per_block.mean()
+        df.loc[sample, 'median block volume [m3]'] = np.median(m3_per_block)
+
+        # medium_block_ids = block_ids[1:][np.where(m3_per_block > 0.03)[0]]
+        # # block shape analysis
+        # for block_id in medium_block_ids:
+        #     coordinates = np.argwhere(block_array == block_id)
+        #     # Perform PCA on the coordinates    
+        #     pca = PCA(n_components=3)
+        #     pca.fit(coordinates)
+        #     # Eigenvalues correspond to the variance along each axis
+        #     axes = np.sqrt(pca.explained_variance_)
+
+        if SAVE_BLOCKS is True:
+            utils.array_to_pointcloud(
+                block_array, resolution=resolution,
+                savepath=fr'../output/{sample}_blocks.zip')
     except FileNotFoundError:
         pass
 
@@ -217,7 +261,9 @@ print('data saved -> plotting\n')
 # visualizations of the dataset
 ##########################################
 
-pltr.struct_complex_plot(df, close=True)
+pltr.advanced_parameter_plot(df)
+
+pltr.complexity_scatter(df)
 
 pltr.custom_pairplot(df, PLOT_PARAMS, RELATION_DIC)
 

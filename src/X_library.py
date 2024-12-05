@@ -11,12 +11,15 @@ math, plotting or general use (utilities).
 
 import numpy as np
 import pandas as pd
+from scipy.ndimage import generic_filter, label
 from scipy.optimize import curve_fit
 from skimage.transform import resize
 from skimage.measure import block_reduce
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import MinMaxScaler
+import trimesh
 import matplotlib
+import matplotlib.gridspec as gridspec
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
@@ -88,32 +91,156 @@ class utilities:
         a_fit, b_fit, c_fit = params
         return a_fit, b_fit, c_fit
 
+    def array_to_pointcloud(self, array: np.array, resolution: float,
+                            savepath: str) -> None:
+        '''function takes a structured array and computes the coordinates for
+        each point and saves them to a zipped csv file'''
+        n = array.shape[0]
+        x = np.arange(0, n * resolution, resolution)
+        y = np.arange(0, n * resolution, resolution)
+        z = np.arange(0, n * resolution, resolution)
+        # Create the 3D grid of coordinates
+        X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+        x_flat = X.ravel()
+        y_flat = Y.ravel()
+        z_flat = Z.ravel()
+        data_flat = array.ravel()
+        output = np.column_stack((x_flat, y_flat, z_flat, data_flat))
+
+        df = pd.DataFrame(data=output, columns=['x', 'y', 'z', 'v'])
+        df = df.astype({'x': 'float16', 'y': 'float16', 'z': 'float16',
+                        'v': 'int32'})
+        compression_options = dict(method='zip', archive_name='blocks.csv')
+        df.to_csv(savepath, index=False, compression=compression_options)
+
+    def identify_intact_rock_regions(self, array: np.array) -> list:
+        """ Identifies all disconnected regions of intact rock (value 0) in a
+        3D binary array.
+        Parameters:
+        - array: 3D numpy array of binary values (0 and 1)
+        Returns:
+        - labeled_array: 3D array with unique labels for each connected region
+        of 0s
+        - num_features: Total number of disconnected regions identified"""
+        # Define the structure for connectivity
+        connectivity = np.array([[[0, 0, 0],
+                                  [0, 1, 0],
+                                  [0, 0, 0]],
+                                 [[0, 1, 0],
+                                  [1, 1, 1],
+                                  [0, 1, 0]],
+                                 [[0, 0, 0],
+                                  [0, 1, 0],
+                                  [0, 0, 0]]], dtype=int)
+
+        # Perform connected component labeling
+        labeled_array, num_features = label(array == 0, structure=connectivity)
+
+        return labeled_array, num_features
+
 
 class plotter(utilities):
 
     def __init__(self):
         pass
 
-    def struct_complex_plot(self, df: pd.DataFrame,
-                            close: bool = True) -> None:
+    def complexity_scatter(self, df: pd.DataFrame) -> None:
+        '''plots volumetric joint count against Shannon entropy and shows
+        examples'''
+
+        # find examples of samples to add to plot
+        df.dropna(axis=0,
+                  subset=['Jv measured [discs/m³]', 'Shannon entropy'],
+                  inplace=True)
+        id_lower = df.index[df['Jv measured [discs/m³]'].argmin()]
+        id_upper = df.index[df['Jv measured [discs/m³]'].argmax()]
+        id_max_c = df.index[df['Shannon entropy'].argmax()]
+        Jv_at_max_c = df.loc[id_max_c, 'Jv measured [discs/m³]']
+        c_lower_mid = df.loc[[id_lower, id_max_c], 'Shannon entropy'].mean()
+        c_upper_mid = df.loc[[id_max_c, id_upper], 'Shannon entropy'].mean()
+        id_lower_mid = (df[df['Jv measured [discs/m³]'] < Jv_at_max_c]['Shannon entropy'] - c_lower_mid).abs().idxmin()
+        id_upper_mid = (df[df['Jv measured [discs/m³]'] > Jv_at_max_c]['Shannon entropy'] - c_upper_mid).abs().idxmin()
+        ids = [id_lower, id_lower_mid, id_max_c, id_upper_mid, id_upper]
+
+        # make plot
+        fig = plt.figure(tight_layout=True, figsize=(8, 6))
+        gs = gridspec.GridSpec(nrows=2, ncols=5, height_ratios=[3.5, 1])
+
+        # top part with complexity
+        ax = fig.add_subplot(gs[0, :])
+        ax.scatter(df['Jv measured [discs/m³]'], df['Shannon entropy'],
+                   color='grey', alpha=0.5, s=30)
+        ax.scatter(df.loc[ids, 'Jv measured [discs/m³]'],
+                   df.loc[ids, 'Shannon entropy'], color='grey',
+                   edgecolor='black', s=90)
+        ax.set_xticks([0, 3, 10, 30])
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+        ax.set_yticks([0.4, 0.6, 0.8, 1])
+        text_y = 0.26
+        ax.text(x=1, y=text_y, s='extremely low - low', ha='center',
+                va='bottom', rotation=90)
+        ax.text(x=4, y=text_y, s='moderately high', ha='center', va='bottom',
+                rotation=90)
+        ax.text(x=11, y=text_y, s='high', ha='center', va='bottom',
+                rotation=90)
+        ax.text(x=31, y=text_y, s='very high', ha='center', va='bottom',
+                rotation=90)
+        ax.set_xlabel('volumetric joint count - $J_v$ [discontinuities/m³]')
+        ax.set_ylabel('Rock Mass Complexity\nShannon entropy')
+        ax.grid(alpha=0.5)
+
+        # open and slice exemplary meshes
+        for i, id_ in enumerate(ids):
+
+            mesh = trimesh.load_mesh(
+                fr'../combinations/{id_}_discontinuities.stl')
+            section = mesh.section(plane_origin=[5, 5, 5],
+                                   plane_normal=[0, 0, 1])
+            section_2D, to_3D = section.to_planar()
+
+            ax = fig.add_subplot(gs[1, i])
+
+            for entity in section_2D.entities:
+                # if the entity has it's own plot method use it
+                if hasattr(entity, 'plot'):
+                    entity.plot(section_2D.vertices)
+                    continue
+                # otherwise plot the discrete curve
+                discrete = entity.discrete(section_2D.vertices)
+                ax.plot(*discrete.T, color='black', lw=.5)
+            ax.set_xlim(-5, 5)
+            ax.set_ylim(-5, 5)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_aspect('equal')
+
+        plt.tight_layout()
+        plt.savefig(r'../output/graphics/complexity_scatter.png', dpi=300)
+
+    def advanced_parameter_plot(self, df: pd.DataFrame,
+                                close: bool = True) -> None:
         '''function plots structural complexity against different other
         parameters'''
-        def add_scatter(ax, x, y):
+        def add_scatter(ax, x, y, yscale=None):
             ax.scatter(df[x], df[y], alpha=0.5, color='black',
                        edgecolor='grey')
+            if yscale == 'log':
+                ax.set_yscale('log')
             ax.set_xlabel(x)
             ax.set_ylabel(y)
             ax.grid(alpha=0.5)
 
-        fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(9, 9))
+        fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(12, 9))
 
         add_scatter(axs[0, 0], 'P32', 'structural complexity')
         add_scatter(axs[0, 1], 'P32', 'Shannon entropy')
-        add_scatter(axs[1, 0], 'P32', 'compression ratio')
-        add_scatter(axs[1, 1], 'P32', 'Minkowski dimension')
+        add_scatter(axs[0, 2], 'P32', 'compression ratio')
+        add_scatter(axs[1, 0], 'P32', 'Minkowski dimension')
+        add_scatter(axs[1, 1], 'P32', 'avg. block volume [m3]', 'log')
+        add_scatter(axs[1, 2], 'P32', 'n blocks')
 
         plt.tight_layout()
-        plt.savefig(r'../output/graphics/struct_new.png', dpi=300)
+        plt.savefig(r'../output/graphics/advanced_parameter_plot.png', dpi=300)
         if close is True:
             plt.close()
 
@@ -560,7 +687,34 @@ class parameters:
     def Shannon_Entropy(self):
         pass
 
+    def compute_lacunarity(self, array: np.array, box_sizes: list,
+                           resolution: float) -> dict:
+        """
+        Computes lacunarity for a 3D binary array over different box sizes.
+        Parameters:
+        - array: 3D numpy array of binary values (0 and 1)
+        - box_sizes: List of integers representing the edge lengths of cubic
+        boxes
+        - resolution: edge size of boxes
+        Returns:
+        - lacunarity_results: Dictionary where keys are box sizes and values
+        are lacunarity
+        """
+        lacunarity_results = {}
 
-
-
-
+        for box_size in box_sizes:
+            # Apply a sliding window to compute mass within each box
+            footprint = np.ones((box_size, box_size, box_size))
+            mass = generic_filter(array, np.sum, footprint=footprint,
+                                  mode='reflect')
+            # Calculate mean and variance of the mass distribution
+            mean_mass = np.mean(mass)
+            variance_mass = np.var(mass)
+            # Compute lacunarity
+            if mean_mass > 0:  # Avoid division by zero
+                lacunarity = (variance_mass + mean_mass**2) / (mean_mass**2)
+            else:
+                lacunarity = np.nan  # Undefined if the mean mass is zero
+            size = f'{round(box_size*resolution, 2)} m'
+            lacunarity_results[size] = lacunarity
+        return lacunarity_results
