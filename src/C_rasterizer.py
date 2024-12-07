@@ -22,13 +22,14 @@ from X_library import parameters, utilities
 #############################
 # static variables and constants
 
-N_SETS_TO_PROCESS = 1000  # max number of sets to process in this run
+N_SETS_TO_PROCESS = 10  # max number of sets to process in this run
 TOT_BBOX_SIZE = 10  # total bounding box size [m]
 RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]  # 3D grid resolution
-SAVE_CSV = False
-SAVE_ZIP = True
+SAVE_CSV = False  # convert rastered discontinuity array to pointcloud & save
+SAVE_ZIP = True  # save rastered discontinuity array as zip file
 # run code for random- or sequential unprocessed samples -> multiprocessing
 MODE = 'sequential'  # 'random', 'sequential'
+FP_DF_MEMORY_ERROR = r'../output/memory_errors.xlsx'  # excel for memory errors
 
 #############################
 # processed variables and constants and instantiations
@@ -47,8 +48,15 @@ for id_ in ids:
 #############################
 # main loop
 
+try:  # to load existing memory errors
+    df_memory_errors = pd.read_excel(FP_DF_MEMORY_ERROR)
+except FileNotFoundError:
+    df_memory_errors = pd.DataFrame(columns=['sample ID'])
+    df_memory_errors.to_excel(FP_DF_MEMORY_ERROR, index=False)
+failed = list(df_memory_errors['sample ID'].values)
+
 if MODE == 'sequential':
-    already_processed = [ap.replace('.pkl.gz', '') for ap in listdir(r'../rasters') if '.pkl.gz' in ap]
+    already_processed = [ap.replace('.pkl.gz', '') for ap in listdir(r'../rasters') if '.pkl.gz' in ap] + failed
     ids_unprocessed = np.where(np.isin(names, already_processed) == False)[0]
     sequential_counter = 0
     set_id = ids_unprocessed[sequential_counter]
@@ -57,6 +65,7 @@ processed_sets = 0
 while processed_sets < N_SETS_TO_PROCESS:
 
     if MODE == 'random':
+        # TODO update failed memory error runs also to random mode
         already_processed = [ap.replace('.pkl.gz', '') for ap in listdir(r'../rasters') if '.pkl.gz' in ap]
         ids_unprocessed = np.where(np.isin(names, already_processed) == False)[0]
         set_id = np.random.choice(ids_unprocessed, size=1)[0]
@@ -80,33 +89,24 @@ while processed_sets < N_SETS_TO_PROCESS:
         del discontinuity_voxels
         gc.collect()
         print('\tdiscontinuity grid created')
-
+        # save options
         if SAVE_CSV is True:
-            n = discontinuity_array.shape[0]
-            x = np.arange(0, n * resolution, resolution)
-            y = np.arange(0, n * resolution, resolution)
-            z = np.arange(0, n * resolution, resolution)
-            # Create the 3D grid of coordinates
-            X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
-            x_flat = X.ravel()
-            y_flat = Y.ravel()
-            z_flat = Z.ravel()
-            data_flat = discontinuity_array.ravel()
-            output = np.column_stack((x_flat, y_flat, z_flat, data_flat))
-
-            df = pd.DataFrame(data=output, columns=['x', 'y', 'z', 'v'])
-            df = df.astype({'x': 'float16', 'y': 'float16', 'z': 'float16',
-                            'v': 'int8'})
-            df.to_csv(fr'../rasters/{name}.csv', index=False)
+            utils.array_to_pointcloud(
+                discontinuity_array, resolution,
+                savepath=fr'../rasters/{name}.zip')
             print('\tcsv voxels saved')
-
         if SAVE_ZIP is True:
             with gzip.open(fr'../rasters/{name}.pkl.gz', 'wb') as f:
                 pickle.dump(discontinuity_array, f)
             print('\tzip voxels saved')
 
         print(f'\t{name} finished')
+    # some meshes are too complex for detailed rasterization
     except MemoryError:
+        df_memory_errors = pd.read_excel(FP_DF_MEMORY_ERROR)
+        df_memory_errors.loc[len(df_memory_errors), 'sample ID'] = name
+        failed = list(df_memory_errors['sample ID'].values)
+        df_memory_errors.to_excel(FP_DF_MEMORY_ERROR, index=False)
         pass
 
     if MODE == 'sequential':
