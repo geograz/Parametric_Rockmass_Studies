@@ -13,12 +13,12 @@ import gzip
 import numpy as np
 import pandas as pd
 import pickle
-from scipy.stats import entropy
 from sklearn.decomposition import PCA
+from skimage.measure import euler_number
 from tqdm import tqdm
 import zlib
 
-from X_library import plotter, math, parameters, utilities
+from X_library import math, parameters, utilities
 
 
 ##########################################
@@ -28,42 +28,11 @@ from X_library import plotter, math, parameters, utilities
 RASTER_RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]
 SAVE_BLOCKS = False  # whether or not rastered block models should be saved
 
-PLOT_PARAMS = ['avg. P10', 'avg. P20', 'avg. P21', 'P32',
-               'Jv measured [discs/m³]', 'avg. RQD', 'Minkowski dimension']
-
-RELATION_DIC = {'linear':
-                [['avg. P10', 'avg. P21'], ['avg. P21', 'avg. P10'],
-                 ['avg. P21', 'P32'], ['P32', 'avg. P21'],
-                 ['avg. P10', 'P32'], ['P32', 'avg. P10'],
-                 ['avg. P10', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'avg. P10'],
-                 ['avg. P21', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'avg. P21'],
-                 ['P32', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'P32']],
-
-                'exponential':
-                [['avg. RQD', 'avg. P10'], ['avg. P10', 'avg. RQD'],
-                 ['avg. P20', 'avg. RQD'], ['avg. RQD', 'avg. P20'],
-                 ['avg. P21', 'avg. RQD'], ['avg. RQD', 'avg. P21'],
-                 ['Jv measured [discs/m³]', 'avg. RQD'], ['avg. RQD', 'Jv measured [discs/m³]'],
-                 ['P32', 'avg. RQD'], ['avg. RQD', 'P32']],
-
-                'powerlaw':
-                [['Minkowski dimension', 'avg. P21'], ['avg. P21', 'Minkowski dimension'],
-                 ['Minkowski dimension', 'avg. P10'], ['avg. P10', 'Minkowski dimension'],
-                 ['Minkowski dimension', 'avg. P20'], ['avg. P20', 'Minkowski dimension'],
-                 ['Minkowski dimension', 'P32'], ['P32', 'Minkowski dimension'],
-                 ['Minkowski dimension', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'Minkowski dimension'],
-                 ['avg. P20', 'avg. P10'], ['avg. P10', 'avg. P20'],
-                 ['avg. P20', 'avg. P21'], ['avg. P21', 'avg. P20'],
-                 ['avg. P20', 'P32'], ['P32', 'avg. P20'],
-                 ['avg. P20', 'Jv measured [discs/m³]'], ['Jv measured [discs/m³]', 'avg. P20'],
-                 ['Minkowski dimension', 'avg. RQD'], ['avg. RQD', 'Minkowski dimension']],
-                }
 
 ##########################################
 # instantiations, data loading and preprocessing
 ##########################################
 
-pltr = plotter()
 m = math()
 params = parameters()
 utils = utilities()
@@ -164,9 +133,10 @@ print('standard rock mass characterization parameters computed\n')
 
 # add new empty columns
 cols_other = ['Minkowski dimension', 'structural complexity',
-              'compression ratio', 'n blocks', 'avg. block volume [m3]',
+              'compression ratio', 'Euler characteristic', 'n blocks',
+              'avg. block volume [m3]', 'median block volume [m3]',
               # 'lacunarity 0.15 m', 'lacunarity 0.25 m', 'lacunarity 0.5 m'
-              'median block volume [m3]']
+              ]
 for col in cols_other:
     df[col] = np.nan
 
@@ -174,6 +144,7 @@ for col in cols_other:
 print('computing fractal dimensions')
 cols_disc_voxels = [c for c in df.columns if 'n disc. voxels' in c]
 for sample in tqdm(df.index):
+    # only compute for samples with all boxes calculated
     if df.loc[sample, cols_disc_voxels].isna().sum() == 0:
         df.loc[sample, 'Minkowski dimension'] = params.Minkowski(
             df.loc[sample, cols_disc_voxels].values.astype(int),
@@ -183,19 +154,22 @@ n_processed = len(df) - df['Minkowski dimension'].isna().sum()
 print(f'{n_processed} / {len(df)} fractal dimensions computed')
 
 # compute Shannon entropy
-Shannon_cols = ['n empty voxels at 0.05 [m]', 'n disc. voxels at 0.05 [m]']
-counts = df[Shannon_cols].values
-df['Shannon entropy'] = entropy(counts, base=2, axis=1)
+df['Shannon entropy'] = params.Shannon_Entropy(df)
 print('Shannon entropy computed\n')
 
 # compute complexity and block metrics
 print('computing complexity metrices and blocks')
 resolution = RASTER_RESOLUTIONS[-1]  # -1 = finest resolution
 for sample in tqdm(df.index):
-    fp = fr'..\rasters\{sample}_0.05.pkl.gz'
+    fp = fr'..\rasters\{sample}_{resolution}.pkl.gz'
     try:
         with gzip.open(fp, 'rb') as f:
             decompressed_voxel_array = pickle.load(f)
+
+        # compute Euler Charcteristic
+        euler_characteristic = euler_number(decompressed_voxel_array,
+                                            connectivity=1)
+        df.loc[sample, 'Euler characteristic'] = euler_characteristic
 
         # structural complexity acc. to Bagrov et al. (2020)
         c = params.structural_complexity(decompressed_voxel_array,
@@ -255,30 +229,4 @@ print(f'{n_processed} / {len(df)} complexities computed\n')
 ##########################################
 
 df.to_excel(r'../output/PDD1_1.xlsx')
-print('data saved -> plotting\n')
-
-##########################################
-# visualizations of the dataset
-##########################################
-
-pltr.advanced_parameter_plot(df)
-
-pltr.complexity_scatter(df)
-
-pltr.custom_pairplot(df, PLOT_PARAMS, RELATION_DIC)
-
-pltr.scatter_combinations(df, RELATION_DIC, PLOT_PARAMS)
-
-pltr.Q_Jv_plot(df)
-
-pltr.directional_lineplot(df)
-
-pltr.Pij_plot(df)
-
-pltr.RQD_spacing_hist_plot(df)
-
-JVs = ['Jv ISO 14689 (2019)', 'Jv Palmstrøm (2000)',
-       'Jv Sonmez & Ulusay (1999) 1', 'Jv Sonmez & Ulusay (1999) 2',
-       'Jv Sonmez & Ulusay (2002)', 'Jv Erharter (2023)']
-pltr.Jv_plot(df, Jv_s=JVs,
-             limit=df['Jv measured [discs/m³]'].max()+5)
+print('data saved!')

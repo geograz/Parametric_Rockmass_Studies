@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 from scipy.ndimage import generic_filter, label
 from scipy.optimize import curve_fit
+from scipy.stats import entropy
 from skimage.transform import resize
 from skimage.measure import block_reduce
 from sklearn.metrics import r2_score
@@ -176,16 +177,18 @@ class plotter(utilities):
         ax.set_xticks([0, 3, 10, 30])
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
         ax.set_yticks([0.4, 0.6, 0.8, 1])
-        text_y = 0.26
+        ax.xaxis.tick_top()
+        text_y = 1.02
         ax.text(x=1, y=text_y, s='extremely low - low', ha='center',
-                va='bottom', rotation=90)
-        ax.text(x=4, y=text_y, s='moderately high', ha='center', va='bottom',
-                rotation=90)
-        ax.text(x=11, y=text_y, s='high', ha='center', va='bottom',
-                rotation=90)
-        ax.text(x=31, y=text_y, s='very high', ha='center', va='bottom',
-                rotation=90)
-        ax.set_xlabel('volumetric joint count - $J_v$ [discontinuities/m³]')
+                va='top', rotation=90, color='dimgrey')
+        ax.text(x=4, y=text_y, s='moderately high', ha='center', va='top',
+                rotation=90, color='dimgrey')
+        ax.text(x=11, y=text_y, s='high', ha='center', va='top',
+                rotation=90, color='dimgrey')
+        ax.text(x=31, y=text_y, s='very high', ha='center', va='top',
+                rotation=90, color='dimgrey')
+        ax.set_xlabel('volumetric joint count - $J_v$ [discontinuities/volume]')
+        ax.xaxis.set_label_position('top') 
         ax.set_ylabel('Rock Mass Complexity\nShannon entropy')
         ax.grid(alpha=0.5)
 
@@ -207,7 +210,7 @@ class plotter(utilities):
                     continue
                 # otherwise plot the discrete curve
                 discrete = entity.discrete(section_2D.vertices)
-                ax.plot(*discrete.T, color='black', lw=.5)
+                ax.plot(*discrete.T, color='dimgrey', lw=.5)
             ax.set_xlim(-5, 5)
             ax.set_ylim(-5, 5)
             ax.set_xticks([])
@@ -215,7 +218,7 @@ class plotter(utilities):
             ax.set_aspect('equal')
 
         plt.tight_layout()
-        plt.savefig(r'../output/graphics/complexity_scatter.png', dpi=300)
+        plt.savefig(r'../output/graphics/complexity_scatter.png', dpi=600)
 
     def advanced_parameter_plot(self, df: pd.DataFrame,
                                 close: bool = True) -> None:
@@ -237,7 +240,7 @@ class plotter(utilities):
         add_scatter(axs[0, 2], 'P32', 'compression ratio')
         add_scatter(axs[1, 0], 'P32', 'Minkowski dimension')
         add_scatter(axs[1, 1], 'P32', 'avg. block volume [m3]', 'log')
-        add_scatter(axs[1, 2], 'P32', 'n blocks')
+        add_scatter(axs[1, 2], 'P32', 'Euler characteristic')
 
         plt.tight_layout()
         plt.savefig(r'../output/graphics/advanced_parameter_plot.png', dpi=300)
@@ -618,7 +621,7 @@ class parameters:
 
         return Jn_s
 
-    def Minkowski(self, n_boxes, box_sizes):
+    def Minkowski(self, n_boxes: int, box_sizes: float) -> float:
         '''compute the Minkowski–Bouligand dimension as a parameter for fractal
         dimensions.
         https://en.wikipedia.org/wiki/Minkowski%E2%80%93Bouligand_dimension'''
@@ -684,8 +687,13 @@ class parameters:
         complexity = sum(overlaps)
         return complexity
 
-    def Shannon_Entropy(self):
-        pass
+    def Shannon_Entropy(self, df: pd.DataFrame) -> np.array:
+        '''compute the information entropy after Shannon 1948 as
+        H = -sum(pk * log(pk))
+        https://en.wikipedia.org/wiki/Entropy_(information_theory)'''
+        counts = df[['n empty voxels at 0.05 [m]',
+                     'n disc. voxels at 0.05 [m]']].values
+        return entropy(counts, base=2, axis=1)
 
     def compute_lacunarity(self, array: np.array, box_sizes: list,
                            resolution: float) -> dict:
