@@ -16,7 +16,6 @@ import pickle
 from sklearn.decomposition import PCA
 from skimage.measure import euler_number
 from tqdm import tqdm
-import zlib
 
 from X_library import math, parameters, utilities
 
@@ -133,10 +132,9 @@ print('standard rock mass characterization parameters computed\n')
 
 # add new empty columns
 cols_other = ['Minkowski dimension', 'structural complexity',
-              'compression ratio', 'Euler characteristic', 'n blocks',
-              'avg. block volume [m3]', 'median block volume [m3]',
-              # 'lacunarity 0.15 m', 'lacunarity 0.25 m', 'lacunarity 0.5 m'
-              ]
+              'compression ratio', 'Euler characteristic',
+              'Euler characteristic inverted', 'n blocks',
+              'avg. block volume [m3]', 'median block volume [m3]']
 for col in cols_other:
     df[col] = np.nan
 
@@ -149,7 +147,6 @@ for sample in tqdm(df.index):
         df.loc[sample, 'Minkowski dimension'] = params.Minkowski(
             df.loc[sample, cols_disc_voxels].values.astype(int),
             np.array(RASTER_RESOLUTIONS))
-
 n_processed = len(df) - df['Minkowski dimension'].isna().sum()
 print(f'{n_processed} / {len(df)} fractal dimensions computed')
 
@@ -167,9 +164,12 @@ for sample in tqdm(df.index):
             decompressed_voxel_array = pickle.load(f)
 
         # compute Euler Charcteristic
-        euler_characteristic = euler_number(decompressed_voxel_array,
-                                            connectivity=1)
-        df.loc[sample, 'Euler characteristic'] = euler_characteristic
+        euler_characteristic1 = euler_number(decompressed_voxel_array,
+                                             connectivity=1)
+        df.loc[sample, 'Euler characteristic'] = euler_characteristic1
+        euler_characteristic2 = euler_number(1-decompressed_voxel_array,
+                                             connectivity=1)
+        df.loc[sample, 'Euler characteristic inverted'] = euler_characteristic2
 
         # structural complexity acc. to Bagrov et al. (2020)
         c = params.structural_complexity(decompressed_voxel_array,
@@ -177,25 +177,13 @@ for sample in tqdm(df.index):
         df.loc[sample, 'structural complexity'] = c
 
         # compression complexity
-        flattened = decompressed_voxel_array.flatten()
-        byte_data = flattened.tobytes()  # Convert to bytes for compression
-        compressed_data = zlib.compress(byte_data)  # Compress the byte data
-        compression_ratio = len(compressed_data) / len(byte_data)
+        compression_ratio = params.compression_complexity(decompressed_voxel_array)
         df.loc[sample, 'compression ratio'] = compression_ratio
-
-        # # lacunarity
-        # box_sizes = [3, 6, 9]
-        # lacunarity_values = params.compute_lacunarity(
-        #     decompressed_voxel_array, box_sizes, 0.05)
-        # df.loc[sample, 'lacunarity 0.15 m'] = lacunarity_values['0.15 m']
-        # df.loc[sample, 'lacunarity 0.3 m'] = lacunarity_values['0.3 m']
-        # df.loc[sample, 'lacunarity 0.45 m'] = lacunarity_values['0.45 m']
 
         # block analyses, basic parameters should be robust, rest experimental
         # TODO implement block sieve curve and DXX parameters
         block_array, num_blocks = utils.identify_intact_rock_regions(
             decompressed_voxel_array)
-
         df.loc[sample, 'n blocks'] = num_blocks - 1  # without discontinuities
 
         block_ids, voxels_per_block = np.unique(block_array,

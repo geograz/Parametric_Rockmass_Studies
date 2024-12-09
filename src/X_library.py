@@ -15,12 +15,13 @@ from scipy.ndimage import generic_filter, label
 from scipy.optimize import curve_fit
 from scipy.stats import entropy
 from skimage.transform import resize
-from skimage.measure import block_reduce
+from skimage.measure import block_reduce, euler_number
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import MinMaxScaler
 import trimesh
 import matplotlib
 import matplotlib.gridspec as gridspec
+import zlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
@@ -236,11 +237,13 @@ class plotter(utilities):
         fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(12, 9))
 
         add_scatter(axs[0, 0], 'P32', 'structural complexity')
-        add_scatter(axs[0, 1], 'P32', 'Shannon entropy')
+        add_scatter(axs[0, 1], 'P32', 'Euler characteristic')
         add_scatter(axs[0, 2], 'P32', 'compression ratio')
-        add_scatter(axs[1, 0], 'P32', 'Minkowski dimension')
-        add_scatter(axs[1, 1], 'P32', 'avg. block volume [m3]', 'log')
-        add_scatter(axs[1, 2], 'P32', 'Euler characteristic')
+        # add_scatter(axs[1, 2], 'P32', 'compression ratio inverted')
+        # add_scatter(axs[1, 0], 'P32', 'structural complexity inverted')
+        add_scatter(axs[1, 1], 'P32', 'Euler characteristic inverted')
+        add_scatter(axs[1, 0], 'P32', 'avg. block volume [m3]', 'log')
+        add_scatter(axs[1, 2], 'P32', 'Shannon entropy')
 
         plt.tight_layout()
         plt.savefig(r'../output/graphics/advanced_parameter_plot.png', dpi=300)
@@ -499,6 +502,50 @@ class plotter(utilities):
         plt.savefig(r'../output/graphics/Q_Jv_plot.pdf')
         plt.close()
 
+    def Euler_plot(self) -> None:
+        '''Figure that plots some generic examples of the Euler
+        characteristic'''
+        # create generic voxel arrays of shapes
+        negative_array = np.ones((5, 5, 5), dtype=int)
+        negative_array[1, :, 1] = 0  # Create a tunnel
+        negative_array[1, :, 3] = 0  # Create a tunnel
+        negative_array[3, :, 1] = 0  # Create a tunnel
+        negative_array[3, :, 3] = 0  # Create a tunnel
+
+        intermediate_array = np.ones((5, 5, 5), dtype=int)
+        intermediate_array[1, :, :] = 0  # Insert plane
+        intermediate_array[3, :, :] = 0  # Insert plane
+
+        positive_array = np.zeros((5, 5, 5), dtype=int)
+        positive_array[::2, ::2, ::2] = 1  # Isolated voxels
+
+        # plot
+        fig = plt.figure(figsize=(3, 9))
+        letters = ['a', 'b', 'c']
+
+        for i, array in enumerate([positive_array, intermediate_array,
+                                   negative_array]):
+            # array = 1-array
+            e = euler_number(array, connectivity=1)  # computer Euler number
+
+            ax = fig.add_subplot(3, 1, i+1, projection='3d')
+            ones = np.where(array == 1, True, False)
+            zeros = np.where(array == 1, False, True)
+            ax.voxels(ones, color='grey', edgecolor='black', lw=0.5,
+                      alpha=0.95)
+            ax.voxels(zeros, color='white', edgecolor='black', lw=0.5,
+                      alpha=0.15)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_zticks([])
+            ax.set_axis_off()
+            ax.set_title(f'{letters[i]}) χ: {round(e, 2)}')
+            ax.set_aspect('equal')
+
+        plt.tight_layout()
+        plt.savefig(r'../output/graphics/Euler_voxels.svg')
+        plt.close()
+
 
 class parameters:
 
@@ -629,13 +676,16 @@ class parameters:
         eps_ = np.log(1/box_sizes)
         return np.polyfit(eps_, N_, 1)[0]
 
-    def scalar_p_image(self, arr1, arr2):
+    def scalar_p_image(self, arr1: np.array, arr2: np.array) -> np.array:
         '''function that computs the scalar product of 2 RGB images'''
         return arr1[:, :, 0] * arr2[:, :, 0] + arr1[:, :, 1] * arr2[:, :, 1] + arr1[:, :, 2] * arr2[:, :, 2]
 
-    def structural_complexity(self, data, lambda_=2, N=None, mode='image'):
-        '''function computes the structural complexity of raster data'''
-        if N == None:
+    def structural_complexity(self, data: np.array, lambda_: int = 2,
+                              N: int = None, mode: str = 'image') -> float:
+        '''function computes the structural complexity of raster data according
+        to Bagrov et al. (2020)
+        https://www.pnas.org/doi/10.1073/pnas.2004976117'''
+        if N is None:
             # compute max. possible split with given data resolution
             res = data.shape[0]
             counter = 0
@@ -655,9 +705,11 @@ class parameters:
 
         for i, step_size in enumerate(window_sizes):
             if mode == 'image':
-                data_c = block_reduce(data, (step_size, step_size, 1), np.mean)
+                data_c = block_reduce(data, (step_size, step_size, 1),
+                                      np.mean)
             elif mode == '3Dgrid':
-                data_c = block_reduce(data, (step_size, step_size, step_size), np.mean)
+                data_c = block_reduce(data, (step_size, step_size, step_size),
+                                      np.mean)
             else:
                 raise ValueError('mode not implemented')
 
@@ -695,8 +747,14 @@ class parameters:
                      'n disc. voxels at 0.05 [m]']].values
         return entropy(counts, base=2, axis=1)
 
-    def compute_lacunarity(self, array: np.array, box_sizes: list,
-                           resolution: float) -> dict:
+    def compression_complexity(self, array):
+        flattened = array.flatten()
+        byte_data = flattened.tobytes()  # Convert to bytes for compression
+        compressed_data = zlib.compress(byte_data, level=-1)
+        return len(compressed_data) / len(byte_data)
+
+    def lacunarity(self, array: np.array, box_sizes: list,
+                   resolution: float) -> dict:
         """
         Computes lacunarity for a 3D binary array over different box sizes.
         Parameters:

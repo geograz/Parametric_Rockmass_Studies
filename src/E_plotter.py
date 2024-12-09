@@ -57,6 +57,7 @@ df = pd.read_excel(r'../output/PDD1_1.xlsx', index_col='identifier')
 # visualizations of the dataset
 ##########################################
 
+pltr.Euler_plot()
 
 pltr.advanced_parameter_plot(df)
 
