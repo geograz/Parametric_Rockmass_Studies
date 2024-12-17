@@ -1,11 +1,12 @@
-combinations/
-
+# folder with old and very immature code
 old_other/
 
+# folder with frequently changing outputs such as graphics
 output/graphics/
 
 rasters/
 
+# experimental machine learning application
 ML/
 
 src/__pycache__/
