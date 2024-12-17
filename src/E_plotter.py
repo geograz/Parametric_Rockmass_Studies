@@ -59,11 +59,20 @@ df = pd.read_excel(r'../output/PDD1_1.xlsx', index_col='identifier')
 
 pltr.Euler_plot()
 
-pltr.advanced_parameter_plot(df)
+pltr.advanced_parameter_scatter_plot(df)
+
+pltr.pairplot(df, plot_params=['Shannon entropy', 'compression ratio',
+                               'structural complexity', 'Euler characteristic',
+                               'Minkowski dimension',
+                               'Euler characteristic inverted'])
 
 pltr.complexity_scatter(df)
 
-pltr.custom_pairplot(df, PLOT_PARAMS, RELATION_DIC)
+pltr.complexity_scatter_1(df)
+
+pltr.complexity_scatter_2(df)
+
+pltr.relation_type_pairplot(df, PLOT_PARAMS, RELATION_DIC)
 
 pltr.scatter_combinations(df, RELATION_DIC, PLOT_PARAMS)
 

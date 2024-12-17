@@ -144,24 +144,33 @@ class utilities:
 class plotter(utilities):
 
     def __init__(self):
-        pass
+        self.label_map = {
+            'Jv measured [discs/m³]': 'volumetric joint count - $J_v$ [discontinuities/volume]',
+            'P32': '$P32$',
+            'Shannon entropy': 'Shannon entropy ($H$)',
+            'compression ratio': 'Compression complexity ($C_c$)',
+            'structural complexity': 'Multiscale structural complexity ($C$)',
+            'Euler characteristic': 'Euler characteristic ($χ$)\nfor discontinuities',
+            'Minkowski dimension': 'Fractal dimension ($D$)',
+            'Euler characteristic inverted': 'Euler characteristic($χ$)\nfor intact rock'}
 
-    def complexity_scatter(self, df: pd.DataFrame) -> None:
-        '''plots volumetric joint count against Shannon entropy and shows
-        examples'''
+    def complexity_scatter(self, df: pd.DataFrame,
+                           x_param: str = 'Jv measured [discs/m³]',
+                           y_param: str = 'structural complexity') -> None:
+        '''plots discontinuity density parameter against complexity parameter
+        and shows examples for final interpretation'''
 
         # find examples of samples to add to plot
-        df.dropna(axis=0,
-                  subset=['Jv measured [discs/m³]', 'Shannon entropy'],
+        df.dropna(axis=0, subset=[x_param, y_param],
                   inplace=True)
-        id_lower = df.index[df['Jv measured [discs/m³]'].argmin()]
-        id_upper = df.index[df['Jv measured [discs/m³]'].argmax()]
-        id_max_c = df.index[df['Shannon entropy'].argmax()]
-        Jv_at_max_c = df.loc[id_max_c, 'Jv measured [discs/m³]']
-        c_lower_mid = df.loc[[id_lower, id_max_c], 'Shannon entropy'].mean()
-        c_upper_mid = df.loc[[id_max_c, id_upper], 'Shannon entropy'].mean()
-        id_lower_mid = (df[df['Jv measured [discs/m³]'] < Jv_at_max_c]['Shannon entropy'] - c_lower_mid).abs().idxmin()
-        id_upper_mid = (df[df['Jv measured [discs/m³]'] > Jv_at_max_c]['Shannon entropy'] - c_upper_mid).abs().idxmin()
+        id_lower = df.index[df[x_param].argmin()]
+        id_upper = df.index[df[x_param].argmax()]
+        id_max_c = df.index[df[y_param].argmax()]
+        Jv_at_max_c = df.loc[id_max_c, x_param]
+        c_lower_mid = df.loc[[id_lower, id_max_c], y_param].mean()
+        c_upper_mid = df.loc[[id_max_c, id_upper], y_param].mean()
+        id_lower_mid = (df[df[x_param] < Jv_at_max_c][y_param] - c_lower_mid).abs().idxmin()
+        id_upper_mid = (df[df[x_param] > Jv_at_max_c][y_param] - c_upper_mid).abs().idxmin()
         ids = [id_lower, id_lower_mid, id_max_c, id_upper_mid, id_upper]
 
         # make plot
@@ -170,16 +179,16 @@ class plotter(utilities):
 
         # top part with complexity
         ax = fig.add_subplot(gs[0, :])
-        ax.scatter(df['Jv measured [discs/m³]'], df['Shannon entropy'],
+        ax.scatter(df[x_param], df[y_param],
                    color='grey', alpha=0.5, s=30)
-        ax.scatter(df.loc[ids, 'Jv measured [discs/m³]'],
-                   df.loc[ids, 'Shannon entropy'], color='grey',
+        ax.scatter(df.loc[ids, x_param],
+                   df.loc[ids, y_param], color='grey',
                    edgecolor='black', s=90)
         ax.set_xticks([0, 3, 10, 30])
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-        ax.set_yticks([0.4, 0.6, 0.8, 1])
+        # ax.set_yticks([0.4, 0.6, 0.8, 1])
         ax.xaxis.tick_top()
-        text_y = 1.02
+        text_y = df[y_param].max() + (df[y_param].max() - df[y_param].min()) * 0.04
         ax.text(x=1, y=text_y, s='extremely low - low', ha='center',
                 va='top', rotation=90, color='dimgrey')
         ax.text(x=4, y=text_y, s='moderately high', ha='center', va='top',
@@ -188,9 +197,9 @@ class plotter(utilities):
                 rotation=90, color='dimgrey')
         ax.text(x=31, y=text_y, s='very high', ha='center', va='top',
                 rotation=90, color='dimgrey')
-        ax.set_xlabel('volumetric joint count - $J_v$ [discontinuities/volume]')
-        ax.xaxis.set_label_position('top') 
-        ax.set_ylabel('Rock Mass Complexity\nShannon entropy')
+        ax.set_xlabel(self.label_map[x_param])
+        ax.xaxis.set_label_position('top')
+        ax.set_ylabel(f'Rock Mass Complexity\n{self.label_map[y_param]}')
         ax.grid(alpha=0.5)
 
         # open and slice exemplary meshes
@@ -221,34 +230,162 @@ class plotter(utilities):
         plt.tight_layout()
         plt.savefig(r'../output/graphics/complexity_scatter.png', dpi=600)
 
-    def advanced_parameter_plot(self, df: pd.DataFrame,
-                                close: bool = True) -> None:
+    def advanced_parameter_scatter_plot(self, df: pd.DataFrame,
+                                        close: bool = True) -> None:
         '''function plots structural complexity against different other
         parameters'''
-        def add_scatter(ax, x, y, yscale=None):
+        def add_scatter(ax: plt.axis, x: str, y: str,
+                        yscale: str = None) -> None:
             ax.scatter(df[x], df[y], alpha=0.5, color='black',
-                       edgecolor='grey')
+                       edgecolor='grey', s=10)
             if yscale == 'log':
                 ax.set_yscale('log')
-            ax.set_xlabel(x)
-            ax.set_ylabel(y)
+            ax.set_xlabel(self.label_map[x])
+            ax.set_ylabel(self.label_map[y])
             ax.grid(alpha=0.5)
 
-        fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(12, 9))
+        fig, axs = plt.subplots(nrows=3, ncols=2, figsize=(6.85039, 9.2126))
 
-        add_scatter(axs[0, 0], 'P32', 'structural complexity')
-        add_scatter(axs[0, 1], 'P32', 'Euler characteristic')
-        add_scatter(axs[0, 2], 'P32', 'compression ratio')
-        # add_scatter(axs[1, 2], 'P32', 'compression ratio inverted')
-        # add_scatter(axs[1, 0], 'P32', 'structural complexity inverted')
-        add_scatter(axs[1, 1], 'P32', 'Euler characteristic inverted')
-        add_scatter(axs[1, 0], 'P32', 'avg. block volume [m3]', 'log')
-        add_scatter(axs[1, 2], 'P32', 'Shannon entropy')
+        add_scatter(axs[0, 0], 'P32', 'Shannon entropy')
+        add_scatter(axs[0, 1], 'P32', 'compression ratio')
+        add_scatter(axs[1, 0], 'P32', 'structural complexity')
+        add_scatter(axs[1, 1], 'P32', 'Euler characteristic')
+        add_scatter(axs[2, 0], 'P32', 'Minkowski dimension')
+        add_scatter(axs[2, 1], 'P32', 'Euler characteristic inverted')
 
         plt.tight_layout()
-        plt.savefig(r'../output/graphics/advanced_parameter_plot.png', dpi=300)
+        # subplot labels
+        x1, x2 = 0.13, 0.66
+        plt.text(x1, 0.96, 'a)', fontsize=14,
+                 transform=plt.gcf().transFigure)
+        plt.text(x2, 0.96, 'b)', fontsize=14,
+                 transform=plt.gcf().transFigure)
+        plt.text(x1, 0.63, 'c)', fontsize=14,
+                 transform=plt.gcf().transFigure)
+        plt.text(x2, 0.63, 'd)', fontsize=14,
+                 transform=plt.gcf().transFigure)
+        plt.text(x1, 0.30, 'e)', fontsize=14,
+                 transform=plt.gcf().transFigure)
+        plt.text(x2, 0.30, 'f)', fontsize=14,
+                 transform=plt.gcf().transFigure)
+
+        plt.savefig(r'../output/graphics/advanced_parameter_plot.svg')
+        plt.savefig(r'../output/graphics/advanced_parameter_plot.pdf')
         if close is True:
             plt.close()
+
+    def complexity_scatter_1(self, df: pd.DataFrame, s: int = 10,
+                             fsize: float = 8) -> None:
+
+        fig, ax1 = plt.subplots(figsize=(6.85039, 4), layout='constrained')
+        ax2 = ax1.twinx()
+        ax3 = ax1.twinx()
+        ax4 = ax1.twinx()
+
+        ax1.set_xlabel(self.label_map['P32'], fontsize=fsize)
+        ax1.set_ylabel(self.label_map['compression ratio'], fontsize=fsize)
+        ax2.set_ylabel(self.label_map['Shannon entropy'], fontsize=fsize)
+        ax3.set_ylabel(self.label_map['structural complexity'], fontsize=fsize)
+        ax4.set_ylabel(self.label_map['Euler characteristic'], fontsize=fsize)
+
+        p1 = ax1.scatter(df['P32'], df['compression ratio'], s=s,
+                         color='black', marker='2',
+                         label=self.label_map['compression ratio'])
+        p2 = ax2.scatter(df['P32'], df['Shannon entropy'], s=s,
+                         color='C0', marker='v',
+                         label=self.label_map['Shannon entropy'])
+        p3 = ax3.scatter(df['P32'], df['structural complexity'], s=s,
+                         color='C1', marker='o',
+                         label=self.label_map['structural complexity'])
+        p4 = ax4.scatter(df['P32'], df['Euler characteristic'], s=s,
+                         color='C3', marker='x',
+                         label=self.label_map['Euler characteristic'])
+
+        ax4.legend(handles=[p1, p2, p3, p4], loc='lower right', framealpha=1,
+                   fontsize=fsize)
+        ax1.grid(alpha=0.5)
+        # move thrid and fourth y axes further to the right
+        ax3.spines['right'].set_position(('outward', 40))
+        ax4.spines['right'].set_position(('outward', 85))
+
+        ax1.tick_params(axis='both', labelsize=fsize)
+        ax2.tick_params(axis='both', labelsize=fsize)
+        ax3.tick_params(axis='both', labelsize=fsize)
+        ax4.tick_params(axis='both', labelsize=fsize)
+
+        ax1.yaxis.label.set_color(p1.get_facecolor())
+        ax2.yaxis.label.set_color(p2.get_facecolor())
+        ax3.yaxis.label.set_color(p3.get_facecolor())
+        ax4.yaxis.label.set_color(p4.get_facecolor())
+
+        # plt.tight_layout()
+        plt.savefig(r'../output/graphics/complexity_scatter_1.svg')
+        plt.savefig(r'../output/graphics/complexity_scatter_1.pdf')
+        plt.close()
+
+    def complexity_scatter_2(self, df: pd.DataFrame, s: int = 10,
+                             fsize: float = 8) -> None:
+
+        fig, ax1 = plt.subplots(figsize=(5, 4), layout='constrained')
+        ax2 = ax1.twinx()
+
+        ax1.set_xlabel(self.label_map['P32'], fontsize=fsize)
+        ax1.set_ylabel(self.label_map['Minkowski dimension'], fontsize=fsize)
+        ax2.set_ylabel(self.label_map['Euler characteristic inverted'],
+                       fontsize=fsize)
+
+        p1 = ax1.scatter(df['P32'], df['Minkowski dimension'], s=s,
+                         color='black', marker='o', alpha=0.6,
+                         label=self.label_map['Minkowski dimension'])
+        p2 = ax2.scatter(df['P32'], df['Euler characteristic inverted'], s=s,
+                         color='white', edgecolor='black', lw=1, marker='v',
+                         alpha=0.6,
+                         label=self.label_map['Euler characteristic inverted'])
+
+        ax2.legend(handles=[p1, p2], loc='lower right', framealpha=1,
+                   fontsize=fsize)
+        ax1.grid(alpha=0.5)
+
+        ax1.tick_params(axis='both', labelsize=fsize)
+        ax2.tick_params(axis='both', labelsize=fsize)
+
+        ax1.yaxis.label.set_color(p1.get_facecolor())
+        ax2.yaxis.label.set_color(p2.get_facecolor())
+
+        # plt.tight_layout()
+        plt.savefig(r'../output/graphics/complexity_scatter_2.svg')
+        plt.savefig(r'../output/graphics/complexity_scatter_2.pdf')
+        plt.close()
+
+
+    def pairplot(self, df: pd.DataFrame, plot_params: list,
+                 fsize: float = 7) -> None:
+        '''pairplot'''
+        n_params = len(plot_params)
+        counter = 1
+
+        fig = plt.figure(figsize=(16, 16))
+        for i in range(n_params):
+            for j in range(n_params):
+                ax = fig.add_subplot(n_params, n_params, counter)
+                if i == j:  # diagonal
+                    ax.hist(df[plot_params[i]], bins=30, color='grey',
+                            edgecolor='black')
+                    ax.set_xlabel(plot_params[i], fontsize=fsize)
+                else:  # scatter
+                    ax.scatter(df[plot_params[i]], df[plot_params[j]],
+                               color='grey', edgecolor='black', s=2, alpha=0.3)
+                    ax.set_xlabel(self.label_map[plot_params[i]],
+                                  fontsize=fsize)
+                    ax.set_ylabel(self.label_map[plot_params[j]],
+                                  fontsize=fsize)
+                ax.tick_params(axis='both', labelsize=fsize)
+                counter += 1
+
+        plt.tight_layout()
+        plt.savefig(r'../output/graphics/pairplot_general.svg')
+        plt.savefig(r'../output/graphics/pairplot_general.pdf')
+        plt.close()
 
     def Jv_plot(self, df: pd.DataFrame, Jv_s: list,
                 limit: float = 100) -> None:
@@ -281,8 +418,11 @@ class plotter(utilities):
         plt.savefig(r'../output/graphics/JVs.pdf', dpi=600)
         plt.close()
 
-    def custom_pairplot(self, df: pd.DataFrame, plot_params: list,
-                        relation_dic: dict, fsize: float = 7) -> None:
+    def relation_type_pairplot(self, df: pd.DataFrame, plot_params: list,
+                               relation_dic: dict, fsize: float = 7) -> None:
+        '''pairplot that shows scatterplots of parameters against each other
+        above the diagonal, histograms in the diagonal and relationship types
+        below the diagonal'''
         n_params = len(plot_params)
         counter = 1
 
@@ -320,7 +460,7 @@ class plotter(utilities):
                 counter += 1
 
         plt.tight_layout()
-        plt.savefig(r'../output/graphics/pairplot.pdf', dpi=600)
+        plt.savefig(r'../output/graphics/pairplot_relation.pdf', dpi=600)
         plt.close()
 
     def scatter_combinations(self, df: pd.DataFrame, relation_dic: dict,
