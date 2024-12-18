@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Experimental code to the paper XXXX
-Dr. Georg H. Erharter - 2023
-DOI: https://doi.org/10.1007/s00603-024-03787-9
+        PARAMETRIC ROCK MASS STUDIES
+-- computational rock mass characterization --
 
-Script that loads meshes and transforms them into rasters at different
-resolution for further analyses. Does not include raster analyses.
-Only generation.
-(results not included in first paper).
+Code author: Dr. Georg H. Erharter
+
+Script that loads meshes and computes rasters at different resolution from them
+for further analyses. Does not include raster analyses - only generation.
 """
+
 import gzip
 import pickle
 import gc
@@ -22,9 +22,8 @@ from X_library import parameters, utilities
 #############################
 # static variables and constants
 
-N_SETS_TO_PROCESS = 10  # max number of sets to process in this run
-TOT_BBOX_SIZE = 10  # total bounding box size [m]
-RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]  # 3D grid resolution
+N_SETS_TO_PROCESS = 4000  # max number of sets to process in this run
+RASTER_RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]  # 3D grid resolution
 SAVE_CSV = False  # convert rastered discontinuity array to pointcloud & save
 SAVE_ZIP = True  # save rastered discontinuity array as zip file
 # run code for random- or sequential unprocessed samples -> multiprocessing
@@ -42,7 +41,7 @@ utils = utilities()
 ids = [c.split('_')[0] for c in listdir(r'../combinations') if 'discontinuities' in c]
 names = []
 for id_ in ids:
-    for res in RESOLUTIONS:
+    for res in RASTER_RESOLUTIONS:
         names.append(f'{id_}_{res}')
 
 #############################
@@ -65,7 +64,6 @@ processed_sets = 0
 while processed_sets < N_SETS_TO_PROCESS:
 
     if MODE == 'random':
-        # TODO update failed memory error runs also to random mode
         already_processed = [ap.replace('.pkl.gz', '') for ap in listdir(r'../rasters') if '.pkl.gz' in ap]
         ids_unprocessed = np.where(np.isin(names, already_processed) == False)[0]
         set_id = np.random.choice(ids_unprocessed, size=1)[0]
@@ -77,7 +75,6 @@ while processed_sets < N_SETS_TO_PROCESS:
     fp = fr"..\combinations\{name.split('_')[0]}_discontinuities.stl"
     discontinuity_mesh = trimesh.load_mesh(fp)
     print('\tdiscontinuity mesh loaded')
-    # for resolution in RESOLUTIONS:
     resolution = eval(name.split('_')[1])
     print(f'\tprocessing resolution {resolution}')
     try:

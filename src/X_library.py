@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Code to the paper "Rock mass structure characterization considering finite and
-folded discontinuities"
-Dr. Georg H. Erharter - 2023
-DOI: https://doi.org/10.1007/s00603-024-03787-9
+        PARAMETRIC ROCK MASS STUDIES
+-- computational rock mass characterization --
+
+Code author: Dr. Georg H. Erharter
 
 Script that contains a custom library with different classes of functions for
-math, plotting or general use (utilities).
+math, general use (utilities), plotting and computation of parameters.
 """
 
 import numpy as np
@@ -161,16 +161,15 @@ class plotter(utilities):
         and shows examples for final interpretation'''
 
         # find examples of samples to add to plot
-        df.dropna(axis=0, subset=[x_param, y_param],
-                  inplace=True)
-        id_lower = df.index[df[x_param].argmin()]
-        id_upper = df.index[df[x_param].argmax()]
-        id_max_c = df.index[df[y_param].argmax()]
-        Jv_at_max_c = df.loc[id_max_c, x_param]
-        c_lower_mid = df.loc[[id_lower, id_max_c], y_param].mean()
-        c_upper_mid = df.loc[[id_max_c, id_upper], y_param].mean()
-        id_lower_mid = (df[df[x_param] < Jv_at_max_c][y_param] - c_lower_mid).abs().idxmin()
-        id_upper_mid = (df[df[x_param] > Jv_at_max_c][y_param] - c_upper_mid).abs().idxmin()
+        df_new = df.dropna(axis=0, subset=[x_param, y_param])
+        id_lower = df_new.index[df_new[x_param].argmin()]
+        id_upper = df_new.index[df_new[x_param].argmax()]
+        id_max_c = df_new.index[df_new[y_param].argmax()]
+        Jv_at_max_c = df_new.loc[id_max_c, x_param]
+        c_lower_mid = df_new.loc[[id_lower, id_max_c], y_param].mean()
+        c_upper_mid = df_new.loc[[id_max_c, id_upper], y_param].mean()
+        id_lower_mid = (df_new[df_new[x_param] < Jv_at_max_c][y_param] - c_lower_mid).abs().idxmin()
+        id_upper_mid = (df_new[df_new[x_param] > Jv_at_max_c][y_param] - c_upper_mid).abs().idxmin()
         ids = [id_lower, id_lower_mid, id_max_c, id_upper_mid, id_upper]
 
         # make plot
@@ -179,16 +178,14 @@ class plotter(utilities):
 
         # top part with complexity
         ax = fig.add_subplot(gs[0, :])
-        ax.scatter(df[x_param], df[y_param],
+        ax.scatter(df_new[x_param], df_new[y_param],
                    color='grey', alpha=0.5, s=30)
-        ax.scatter(df.loc[ids, x_param],
-                   df.loc[ids, y_param], color='grey',
-                   edgecolor='black', s=90)
+        ax.scatter(df_new.loc[ids, x_param], df_new.loc[ids, y_param],
+                   color='grey', edgecolor='black', s=90)
         ax.set_xticks([0, 3, 10, 30])
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-        # ax.set_yticks([0.4, 0.6, 0.8, 1])
         ax.xaxis.tick_top()
-        text_y = df[y_param].max() + (df[y_param].max() - df[y_param].min()) * 0.04
+        text_y = df_new[y_param].max() + (df_new[y_param].max() - df_new[y_param].min()) * 0.04
         ax.text(x=1, y=text_y, s='extremely low - low', ha='center',
                 va='top', rotation=90, color='dimgrey')
         ax.text(x=4, y=text_y, s='moderately high', ha='center', va='top',
@@ -475,7 +472,7 @@ class plotter(utilities):
                     x, y = plot_params[i], plot_params[j]
                     # fit function to data
                     df_tmp = df.dropna(subset=[x, y])
-                    df_tmp.sort_values(by=x, inplace=True)
+                    df_tmp = df_tmp.sort_values(by=x)
 
                     fig, ax = plt.subplots(figsize=(8, 8))
                     ax.scatter(df_tmp[x], df_tmp[y], alpha=0.5)
@@ -630,7 +627,7 @@ class plotter(utilities):
         ax.set_yticks([1, 4, 10, 40, 100])
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
         ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-        ax.set_xlim(left=x_min, right=x_max)
+        ax.set_xlim(right=x_max)
         ax.set_ylim(bottom=y_min, top=y_max)
         ax.set_xlabel('Jv measured [discs/m³]')
         ax.set_ylabel('RQD/Jn')

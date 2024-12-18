@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Code to the paper "Rock mass structure characterization considering finite and
-folded discontinuities"
-Dr. Georg H. Erharter - 2023
-DOI: https://doi.org/10.1007/s00603-024-03787-9
+        PARAMETRIC ROCK MASS STUDIES
+-- computational rock mass characterization --
+
+Code author: Dr. Georg H. Erharter
 
 Script that compiles the recorded data from samples of the discrete
 discontinuity networks and creates one excel file for further processing.
@@ -21,6 +21,10 @@ from tqdm import tqdm
 # static variables and constants
 ##########################################
 
+# Flag that indicates if raw grasshopper data for PDD1 should be compiled.
+# Raw data will be moved to zipped folder so that this does not need to be done
+# every time.
+COMPILE_RAW_GH_DATA = False
 RASTER_RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]
 
 INPUTS = ['bounding box size [m]', 'Jv boxes edge size [m]', 'seed',
@@ -54,39 +58,50 @@ OUTPUTS = ['meas. spacing set 1 [m]', 'meas. spacing set 2 [m]',
 # main dataset compilation
 ##########################################
 
-# load text files with geometry parameters as they are saved by grasshopper
-print('loading data from textfiles')
-contents = []
-for file_name in tqdm(listdir(r'../combinations')):
-    if '.txt' in file_name:
-        f = open(fr'../combinations/{file_name}', 'r')
-        content = f.read()
-        content = content.replace('(', '')
-        content = content.replace(')', '')
-        content = content.replace(' ', '')
-        content = content.replace('L', '')
-        content = [eval(num) for num in content.split(',')]
-        contents.append(content)
-        f.close()
+if COMPILE_RAW_GH_DATA is True:
+    # load text files with geometry parameters as they are saved by grasshopper
+    # NOTE: this won't work in the future as raw files are being stored in
+    # zipped folder -> need to be unzipped and moved first!!
+    print('loading data from textfiles')
+    contents = []
+    for file_name in tqdm(listdir(r'../combinations')):
+        if '.txt' in file_name:
+            f = open(fr'../combinations/{file_name}', 'r')
+            content = f.read()
+            content = content.replace('(', '')
+            content = content.replace(')', '')
+            content = content.replace(' ', '')
+            content = content.replace('L', '')
+            content = [eval(num) for num in content.split(',')]
+            contents.append(content)
+            f.close()
 
-# make pandas dataframe
-columns = INPUTS + OUTPUTS
-df = pd.DataFrame(columns=columns, data=np.array(contents))
+    # make pandas dataframe
+    columns = INPUTS + OUTPUTS
+    df = pd.DataFrame(columns=columns, data=np.array(contents))
 
-# remove unused input data from discontinuity set 1 which is either a set of
-# planar, finite discontinuities or folded discontinuities
-id_plane = np.where(df['set 1 - type'] == 0)[0]
-id_folds = np.where(df['set 1 - type'] == 1)[0]
+    # remove unused input data from discontinuity set 1 which is either a set
+    # of planar, finite discontinuities or folded discontinuities
+    id_plane = np.where(df['set 1 - type'] == 0)[0]
+    id_folds = np.where(df['set 1 - type'] == 1)[0]
 
-df.loc[id_folds, ['set 1 - n joints', 'set 1 - radius [m]',
-                  'set 1 - radius std [m]', 'set 1 - dip direction [°]',
-                  'set 1 - dip direction std [°]', 'set 1 - dip [°]',
-                  'set 1 - dip std [°]']] = np.nan
-df.loc[id_plane, ['F_rand_sin', 'F_rand_n_planes', 'F_rand_angle',
-                  'F_rand_axis_x', 'F_rand_axis_y', 'F_rand_axis_z']] = np.nan
-df.set_index('identifier', inplace=True)
+    df.loc[id_folds, ['set 1 - n joints', 'set 1 - radius [m]',
+                      'set 1 - radius std [m]', 'set 1 - dip direction [°]',
+                      'set 1 - dip direction std [°]', 'set 1 - dip [°]',
+                      'set 1 - dip std [°]']] = np.nan
+    df.loc[id_plane, ['F_rand_sin', 'F_rand_n_planes', 'F_rand_angle',
+                      'F_rand_axis_x', 'F_rand_axis_y',
+                      'F_rand_axis_z']] = np.nan
+    df.set_index('identifier', inplace=True)
 
-print('basic data frame set up\n')
+    # save to excel file
+    df.to_excel(r'../output/PDD1_0.xlsx')
+    print('basic data frame set up and saved\n')
+else:
+    # load precompiled data
+    df = pd.read_excel(r'../output/PDD1_0.xlsx', index_col='identifier')
+    print('precompiled basic data frame loaded')
+
 
 ##########################################
 # add voxel counts where they are computed
@@ -137,16 +152,12 @@ for joint_set in [1, 2, 3, 4]:
         df.loc[id_0, f'set {joint_set} - dip [°]'] = np.nan
         df.loc[id_0, f'set {joint_set} - dip direction [°]'] = np.nan
 
-# idx_neg_vol = np.where(df['avg. block volume [m³]'] < 0)[0]
-# df = df.drop(index=idx_neg_vol)
-
-# drop all columns of features that are still under development such as block
-# volumes or fractal dimensions
+# drop experimetal grasshopper features like block volumes
 df.drop(['n blocks', 'avg. block volume [m³]', 'max block volume [m³]',
          'min block volume [m³]', 'avg. block edge length [m]',
          'avg. block surface area [m²]', 'a3', 'a2', 'a1'],
         axis=1, inplace=True)
 
 # save to excel file
-df.to_excel(r'../output/PDD1_0.xlsx')
+df.to_excel(r'../output/PDD1_1.xlsx')
 print('data compiled and saved')

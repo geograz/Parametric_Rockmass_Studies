@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Code to the paper "Rock mass structure characterization considering finite and
-folded discontinuities"
-Dr. Georg H. Erharter - 2023
-DOI: https://doi.org/10.1007/s00603-024-03787-9
+        PARAMETRIC ROCK MASS STUDIES
+-- computational rock mass characterization --
+
+Code author: Dr. Georg H. Erharter
 
 Script that processes the compiled records of the discrete discontinuity
 dataset, computes new parameters and creates figures to visualize the dataset.
@@ -13,7 +13,6 @@ import gzip
 import numpy as np
 import pandas as pd
 import pickle
-from sklearn.decomposition import PCA
 from skimage.measure import euler_number
 from tqdm import tqdm
 
@@ -25,8 +24,15 @@ from X_library import math, parameters, utilities
 ##########################################
 
 RASTER_RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]
+DO_BLOCK_ANALYSES = False
 SAVE_BLOCKS = False  # whether or not rastered block models should be saved
 
+# new parameter names that will be computed
+COMPLEXITY_COLUMNS = ['Minkowski dimension', 'structural complexity',
+                      'compression ratio', 'Euler characteristic',
+                      'Euler characteristic inverted']
+BLOCK_COLUMNS = ['n blocks', 'avg. block volume [m3]',
+                 'median block volume [m3]']
 
 ##########################################
 # instantiations, data loading and preprocessing
@@ -38,7 +44,7 @@ utils = utilities()
 
 pd.options.mode.chained_assignment = None
 
-df = pd.read_excel(r'../output/PDD1_0.xlsx', index_col='identifier')
+df = pd.read_excel(r'../output/PDD1_1.xlsx', index_col='identifier')
 
 id_JV_max = df['Jv measured [discs/m³]'].argmax()
 id_JV_min = df['Jv measured [discs/m³]'].argmin()
@@ -131,11 +137,11 @@ print('standard rock mass characterization parameters computed\n')
 ##########################################
 
 # add new empty columns
-cols_other = ['Minkowski dimension', 'structural complexity',
-              'compression ratio', 'Euler characteristic',
-              'Euler characteristic inverted', 'n blocks',
-              'avg. block volume [m3]', 'median block volume [m3]']
-for col in cols_other:
+if DO_BLOCK_ANALYSES is True:
+    new_cols = COMPLEXITY_COLUMNS + BLOCK_COLUMNS
+else:
+    new_cols = COMPLEXITY_COLUMNS
+for col in new_cols:
     df[col] = np.nan
 
 # compute fractal dimensions
@@ -177,35 +183,27 @@ for sample in tqdm(df.index):
         df.loc[sample, 'structural complexity'] = c
 
         # compression complexity
-        compression_ratio = params.compression_complexity(decompressed_voxel_array)
+        compression_ratio = params.compression_complexity(
+            decompressed_voxel_array)
         df.loc[sample, 'compression ratio'] = compression_ratio
 
-        # block analyses, basic parameters should be robust, rest experimental
-        # TODO implement block sieve curve and DXX parameters
-        block_array, num_blocks = utils.identify_intact_rock_regions(
-            decompressed_voxel_array)
-        df.loc[sample, 'n blocks'] = num_blocks - 1  # without discontinuities
+        if DO_BLOCK_ANALYSES is True:  # experimental
+            # TODO implement block sieve curve and DXX parameters
+            block_array, num_blocks = utils.identify_intact_rock_regions(
+                decompressed_voxel_array)
+            df.loc[sample, 'n blocks'] = num_blocks - 1  # no discontinuities
 
-        block_ids, voxels_per_block = np.unique(block_array,
-                                                return_counts=True)
-        m3_per_block = voxels_per_block[1:] * (resolution**3)
-        df.loc[sample, 'avg. block volume [m3]'] = m3_per_block.mean()
-        df.loc[sample, 'median block volume [m3]'] = np.median(m3_per_block)
+            block_ids, voxels_per_block = np.unique(block_array,
+                                                    return_counts=True)
+            m3_per_block = voxels_per_block[1:] * (resolution**3)
+            df.loc[sample, 'avg. block volume [m3]'] = m3_per_block.mean()
+            df.loc[sample, 'median block volume [m3]'] = np.median(m3_per_block)
+            # TODO implement block shape analyses
 
-        # medium_block_ids = block_ids[1:][np.where(m3_per_block > 0.03)[0]]
-        # # block shape analysis
-        # for block_id in medium_block_ids:
-        #     coordinates = np.argwhere(block_array == block_id)
-        #     # Perform PCA on the coordinates    
-        #     pca = PCA(n_components=3)
-        #     pca.fit(coordinates)
-        #     # Eigenvalues correspond to the variance along each axis
-        #     axes = np.sqrt(pca.explained_variance_)
-
-        if SAVE_BLOCKS is True:
-            utils.array_to_pointcloud(
-                block_array, resolution=resolution,
-                savepath=fr'../output/{sample}_blocks.zip')
+            if SAVE_BLOCKS is True:
+                utils.array_to_pointcloud(
+                    block_array, resolution=resolution,
+                    savepath=fr'../output/{sample}_blocks.zip')
     except FileNotFoundError:
         pass
 
@@ -216,5 +214,5 @@ print(f'{n_processed} / {len(df)} complexities computed\n')
 # save data to excel files
 ##########################################
 
-df.to_excel(r'../output/PDD1_1.xlsx')
+df.to_excel(r'../output/PDD1_2.xlsx')
 print('data saved!')

@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Dec  8 13:52:41 2024
+        PARAMETRIC ROCK MASS STUDIES
+-- computational rock mass characterization --
 
-@author: GEr
+Code author: Dr. Georg H. Erharter
+
+Script that produces plots and visualizations from the rock mass analyses.
 """
 
 import pandas as pd
@@ -51,7 +54,7 @@ RELATION_DIC = {'linear':
 
 pltr = plotter()
 
-df = pd.read_excel(r'../output/PDD1_1.xlsx', index_col='identifier')
+df = pd.read_excel(r'../output/PDD1_2.xlsx', index_col='identifier')
 
 ##########################################
 # visualizations of the dataset

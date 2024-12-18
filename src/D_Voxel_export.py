@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Dec  5 16:40:27 2024
+        PARAMETRIC ROCK MASS STUDIES
+-- computational rock mass characterization --
 
-@author: GEr
+Code author: Dr. Georg H. Erharter
+
+Script that saves a mesh of a rastered sample. For visualization purposes only.
 """
 
 import trimesh
