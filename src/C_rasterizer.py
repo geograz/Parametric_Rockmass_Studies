@@ -54,20 +54,17 @@ except FileNotFoundError:
     df_memory_errors.to_excel(FP_DF_MEMORY_ERROR, index=False)
 failed = list(df_memory_errors['sample ID'].values)
 
-if MODE == 'sequential':
+processed_sets = 0  # counter
+while processed_sets < N_SETS_TO_PROCESS:
+    # check which samples have not yet been processed
     already_processed = [ap.replace('.pkl.gz', '') for ap in listdir(r'../rasters') if '.pkl.gz' in ap] + failed
     ids_unprocessed = np.where(np.isin(names, already_processed) == False)[0]
-    sequential_counter = 0
-    set_id = ids_unprocessed[sequential_counter]
 
-processed_sets = 0
-while processed_sets < N_SETS_TO_PROCESS:
-
+    # choose id to process dependent on mode
     if MODE == 'random':
-        already_processed = [ap.replace('.pkl.gz', '') for ap in listdir(r'../rasters') if '.pkl.gz' in ap] + failed
-        ids_unprocessed = np.where(np.isin(names, already_processed) == False)[0]
         set_id = np.random.choice(ids_unprocessed, size=1)[0]
-
+    elif MODE == 'sequential':
+        set_id = ids_unprocessed[processed_sets]
     name = names[set_id]
 
     print(f'\nprocessing set {name}')
@@ -105,10 +102,6 @@ while processed_sets < N_SETS_TO_PROCESS:
         failed = list(df_memory_errors['sample ID'].values)
         df_memory_errors.to_excel(FP_DF_MEMORY_ERROR, index=False)
         pass
-
-    if MODE == 'sequential':
-        sequential_counter += 1
-        set_id = ids_unprocessed[sequential_counter]
 
     processed_sets += 1
     print(f'\t{processed_sets}/{N_SETS_TO_PROCESS} sets processed this run')
