@@ -69,7 +69,7 @@ pltr.pairplot(df, plot_params=['Shannon entropy', 'compression ratio',
                                'Minkowski dimension',
                                'Euler characteristic inverted'])
 
-pltr.complexity_scatter(df)
+pltr.complexity_scatter(df, save_high_density=True)
 
 pltr.complexity_scatter_1(df)
 

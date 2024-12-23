@@ -156,7 +156,8 @@ class plotter(utilities):
 
     def complexity_scatter(self, df: pd.DataFrame,
                            x_param: str = 'Jv measured [discs/m³]',
-                           y_param: str = 'structural complexity') -> None:
+                           y_param: str = 'structural complexity',
+                           save_high_density: bool = False) -> None:
         '''plots discontinuity density parameter against complexity parameter
         and shows examples for final interpretation'''
 
@@ -171,6 +172,8 @@ class plotter(utilities):
         id_lower_mid = (df_new[df_new[x_param] < Jv_at_max_c][y_param] - c_lower_mid).abs().idxmin()
         id_upper_mid = (df_new[df_new[x_param] > Jv_at_max_c][y_param] - c_upper_mid).abs().idxmin()
         ids = [id_lower, id_lower_mid, id_max_c, id_upper_mid, id_upper]
+        print(ids)
+        print(df_new[x_param].max())
 
         # make plot
         fig = plt.figure(tight_layout=True, figsize=(8, 6))
@@ -226,6 +229,25 @@ class plotter(utilities):
 
         plt.tight_layout()
         plt.savefig(r'../output/graphics/complexity_scatter.png', dpi=600)
+
+        if save_high_density is True:
+            fig_hd, ax_hd = plt.subplots(figsize=(10, 10))
+            for entity in section_2D.entities:
+                # if the entity has it's own plot method use it
+                if hasattr(entity, 'plot'):
+                    entity.plot(section_2D.vertices)
+                    continue
+                # otherwise plot the discrete curve
+                discrete = entity.discrete(section_2D.vertices)
+                ax_hd.plot(*discrete.T, color='dimgrey', lw=.5)
+            ax_hd.set_xlim(-5, 5)
+            ax_hd.set_ylim(-5, 5)
+            ax_hd.set_xticks([])
+            ax_hd.set_yticks([])
+            ax_hd.set_aspect('equal')
+            plt.tight_layout()
+            plt.savefig(
+                r'../output/graphics/complexity_scatter_sample.svg')
 
     def advanced_parameter_scatter_plot(self, df: pd.DataFrame,
                                         close: bool = True) -> None:
@@ -323,7 +345,7 @@ class plotter(utilities):
     def complexity_scatter_2(self, df: pd.DataFrame, s: int = 10,
                              fsize: float = 8) -> None:
 
-        fig, ax1 = plt.subplots(figsize=(5, 4), layout='constrained')
+        fig, ax1 = plt.subplots(figsize=(4, 3.5), layout='constrained')
         ax2 = ax1.twinx()
 
         ax1.set_xlabel(self.label_map['P32'], fontsize=fsize)

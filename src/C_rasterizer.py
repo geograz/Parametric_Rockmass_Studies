@@ -64,7 +64,7 @@ processed_sets = 0
 while processed_sets < N_SETS_TO_PROCESS:
 
     if MODE == 'random':
-        already_processed = [ap.replace('.pkl.gz', '') for ap in listdir(r'../rasters') if '.pkl.gz' in ap]
+        already_processed = [ap.replace('.pkl.gz', '') for ap in listdir(r'../rasters') if '.pkl.gz' in ap] + failed
         ids_unprocessed = np.where(np.isin(names, already_processed) == False)[0]
         set_id = np.random.choice(ids_unprocessed, size=1)[0]
 
@@ -111,9 +111,10 @@ while processed_sets < N_SETS_TO_PROCESS:
         set_id = ids_unprocessed[sequential_counter]
 
     processed_sets += 1
+    print(f'\t{processed_sets}/{N_SETS_TO_PROCESS} sets processed this run')
 
     # check if all files were processed
     n_finished = listdir(r'../rasters')
-    if len(n_finished) == len(ids):
+    if len(n_finished) >= len(ids)*len(RASTER_RESOLUTIONS):
         print('!!ALL FILES PROCESSED!!')
         break
