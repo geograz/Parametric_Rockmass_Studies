@@ -22,58 +22,84 @@ from X_library import parameters, utilities
 #############################
 # static variables and constants
 
-N_SETS_TO_PROCESS = 4000  # max number of sets to process in this run
+N_SETS_TO_PROCESS = 5000  # max number of sets to process in this run
 RASTER_RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]  # 3D grid resolution
+MAX_RESOLUTION = 0.1  # max. resolution to process in current run
 SAVE_CSV = False  # convert rastered discontinuity array to pointcloud & save
 SAVE_ZIP = True  # save rastered discontinuity array as zip file
 # run code for random- or sequential unprocessed samples -> multiprocessing
-MODE = 'sequential'  # 'random', 'sequential'
+MODE = 'sequential'  # 'random', 'sequential' 'sequential neg'
 FP_DF_MEMORY_ERROR = r'../output/memory_errors.xlsx'  # excel for memory errors
+FP_DF_SAMPLES = r'../output/df_samples.csv'
 
 #############################
-# processed variables and constants and instantiations
+# processed variables and instantiations
 
-print(f'Raster generation in {MODE} mode')
+print(f'Raster generation in {MODE} mode with max resolution {MAX_RESOLUTION}')
 params = parameters()
 utils = utilities()
 
-# collect all discontinuity ids
-ids = [c.split('_')[0] for c in listdir(r'../combinations') if 'discontinuities' in c]
-names = []
-for id_ in ids:
-    for res in RASTER_RESOLUTIONS:
-        names.append(f'{id_}_{res}')
+# load or make dataframe with all samples
+try:
+    df_samples = pd.read_csv(FP_DF_SAMPLES)
+except FileNotFoundError:
+    # collect all discontinuity ids
+    ids = [c.split('_')[0] for c in listdir(r'../combinations') if 'discontinuities' in c]
+    # generate raster names and resolutions
+    all_rasters, all_resolutions = [], []
+    for id_ in ids:
+        for res in RASTER_RESOLUTIONS:
+            all_rasters.append(f'{id_}_{res}')
+            all_resolutions.append(res)
+    df_samples = pd.DataFrame({'Sample ID': all_rasters,
+                               'Sample resolution [m]': all_resolutions,
+                               'state': np.zeros(len(all_rasters)).astype(np.int16)})
+    # states: 0 = unprocessed, 1 = processed, 2 = memory error
+    # set states for already processed ones & memory errors
+    already_processed = [p.replace('.pkl.gz', '') for p in listdir(r'../rasters')]
+    ids_processed = np.where(
+        np.isin(df_samples['Sample ID'],
+                already_processed) == True)[0]
+    df_samples.loc[ids_processed, 'state'] = 1
+    # load old memory errors
+    df_mem_err = pd.read_excel(FP_DF_MEMORY_ERROR)
+    ids_mem_err = np.where(
+        np.isin(df_samples['Sample ID'],
+                list(df_mem_err['sample ID'])) == True)[0]
+    df_samples.loc[ids_mem_err, 'state'] = 2
+    df_samples.to_csv(FP_DF_SAMPLES, index=False)
 
 #############################
 # main loop
 
-try:  # to load existing memory errors
-    df_memory_errors = pd.read_excel(FP_DF_MEMORY_ERROR)
-except FileNotFoundError:
-    df_memory_errors = pd.DataFrame(columns=['sample ID'])
-    df_memory_errors.to_excel(FP_DF_MEMORY_ERROR, index=False)
-failed = list(df_memory_errors['sample ID'].values)
-
 processed_sets = 0  # counter
 while processed_sets < N_SETS_TO_PROCESS:
-    # check which samples have not yet been processed
-    already_processed = [ap.replace('.pkl.gz', '') for ap in listdir(r'../rasters') if '.pkl.gz' in ap] + failed
-    ids_unprocessed = np.where(np.isin(names, already_processed) == False)[0]
+
+    # load df that keeps track of samples states
+    df_samples = pd.read_csv(FP_DF_SAMPLES)
+    # get unprocessed samples of right resolution
+    unp = df_samples[df_samples['state'] == 0]
+    unp_res = unp[unp['Sample resolution [m]'] >= MAX_RESOLUTION]
+    # check if all files were processed
+    if len(unp_res) == 0:
+        print('!!ALL FILES PROCESSED!!')
+        break
 
     # choose id to process dependent on mode
     if MODE == 'random':
-        set_id = np.random.choice(ids_unprocessed, size=1)[0]
-    elif MODE == 'sequential':
-        set_id = ids_unprocessed[processed_sets]
-    name = names[set_id]
+        id_ = np.random.choice(unp_res['Sample ID'].index, size=1)[0]
+    elif MODE == 'sequential':  # begin rasterization from start
+        id_ = unp_res['Sample ID'].index[0]
+    elif MODE == 'sequential neg':  # begin rasterization from end
+        id_ = unp_res['Sample ID'].index[-1]
+    name, resolution = unp_res.loc[id_, ['Sample ID', 'Sample resolution [m]']]
 
-    print(f'\nprocessing set {name}')
+    print(f'\nprocessing set {name} at resolution: {resolution}')
+    print(f'\t{len(unp_res)} samples unprocessed')
     # load mesh
     fp = fr"..\combinations\{name.split('_')[0]}_discontinuities.stl"
     discontinuity_mesh = trimesh.load_mesh(fp)
     print('\tdiscontinuity mesh loaded')
-    resolution = eval(name.split('_')[1])
-    print(f'\tprocessing resolution {resolution}')
     try:
         discontinuity_voxels = discontinuity_mesh.voxelized(pitch=resolution)
         del discontinuity_mesh
@@ -93,21 +119,19 @@ while processed_sets < N_SETS_TO_PROCESS:
             with gzip.open(fr'../rasters/{name}.pkl.gz', 'wb') as f:
                 pickle.dump(discontinuity_array, f)
             print('\tzip voxels saved')
-
+        # update sample overview
+        state = 1
         print(f'\t{name} finished')
     # some meshes are too complex for detailed rasterization
     except MemoryError:
-        df_memory_errors = pd.read_excel(FP_DF_MEMORY_ERROR)
-        df_memory_errors.loc[len(df_memory_errors), 'sample ID'] = name
-        failed = list(df_memory_errors['sample ID'].values)
-        df_memory_errors.to_excel(FP_DF_MEMORY_ERROR, index=False)
+        # update sample overview
+        state = 2
+        print(f'\t{name} failed due to memory error')
         pass
+    # update and save sample overview dataframe
+    df_samples = pd.read_csv(FP_DF_SAMPLES)
+    df_samples.loc[id_, 'state'] = state
+    df_samples.to_csv(FP_DF_SAMPLES, index=False)
 
     processed_sets += 1
     print(f'\t{processed_sets}/{N_SETS_TO_PROCESS} sets processed this run')
-
-    # check if all files were processed
-    n_finished = listdir(r'../rasters')
-    if len(n_finished) >= len(ids)*len(RASTER_RESOLUTIONS):
-        print('!!ALL FILES PROCESSED!!')
-        break
