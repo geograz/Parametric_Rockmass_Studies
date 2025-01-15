@@ -293,57 +293,59 @@ class plotter(utilities):
         if close is True:
             plt.close()
 
-    def complexity_scatter_1(self, df: pd.DataFrame, s: int = 10,
+    def complexity_scatter_1(self, df: pd.DataFrame, s: int = 3,
                              fsize: float = 8) -> None:
+        '''plot that scatters the complexity parameters that increase and then
+        decrease with discontinuity density'''
 
-        fig, ax1 = plt.subplots(figsize=(6.85039, 4), layout='constrained')
-        ax2 = ax1.twinx()
-        ax3 = ax1.twinx()
-        ax4 = ax1.twinx()
+        fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(4, 5),
+                                layout='constrained')
+        ax2 = axs[0].twinx()
+        ax3 = axs[0].twinx()
 
-        ax1.set_xlabel(self.label_map['P32'], fontsize=fsize)
-        ax1.set_ylabel(self.label_map['compression ratio'], fontsize=fsize)
+        axs[0].set_ylabel(self.label_map['compression ratio'], fontsize=fsize)
         ax2.set_ylabel(self.label_map['Shannon entropy'], fontsize=fsize)
         ax3.set_ylabel(self.label_map['structural complexity'], fontsize=fsize)
-        ax4.set_ylabel(self.label_map['Euler characteristic'], fontsize=fsize)
+        axs[1].set_ylabel(self.label_map['Euler characteristic'], fontsize=fsize)
+        axs[1].set_xlabel(self.label_map['P32'], fontsize=fsize)
 
-        p1 = ax1.scatter(df['P32'], df['compression ratio'], s=s,
-                         color='black', marker='2',
-                         label=self.label_map['compression ratio'])
-        p2 = ax2.scatter(df['P32'], df['Shannon entropy'], s=s,
-                         color='C0', marker='v',
-                         label=self.label_map['Shannon entropy'])
-        p3 = ax3.scatter(df['P32'], df['structural complexity'], s=s,
-                         color='C1', marker='o',
-                         label=self.label_map['structural complexity'])
-        p4 = ax4.scatter(df['P32'], df['Euler characteristic'], s=s,
-                         color='C3', marker='x',
-                         label=self.label_map['Euler characteristic'])
+        axs[0].scatter(df['P32'], df['compression ratio'], s=s, color='black',
+                       alpha=0.2, label=self.label_map['compression ratio'])
+        ax2.scatter(df['P32'], df['Shannon entropy'], s=s, color='C0',
+                    alpha=0.2, label=self.label_map['Shannon entropy'])
+        ax3.scatter(df['P32'], df['structural complexity'], s=s, color='C1',
+                    alpha=0.2, label=self.label_map['structural complexity'])
+        axs[1].scatter(df['P32'], df['Euler characteristic'], s=s,
+                       color='black', alpha=0.2,
+                       label=self.label_map['Euler characteristic'])
 
-        ax4.legend(handles=[p1, p2, p3, p4], loc='lower right', framealpha=1,
-                   fontsize=fsize)
-        ax1.grid(alpha=0.5)
-        # move thrid and fourth y axes further to the right
+        axs[0].grid(alpha=0.5)
+        axs[1].grid(alpha=0.5)
+        # move third y axis further to the right
         ax3.spines['right'].set_position(('outward', 40))
-        ax4.spines['right'].set_position(('outward', 85))
 
-        ax1.tick_params(axis='both', labelsize=fsize)
+        axs[0].tick_params(axis='both', labelsize=fsize)
+        axs[0].xaxis.set_ticklabels([])
         ax2.tick_params(axis='both', labelsize=fsize)
         ax3.tick_params(axis='both', labelsize=fsize)
-        ax4.tick_params(axis='both', labelsize=fsize)
+        axs[1].tick_params(axis='both', labelsize=fsize)
 
-        ax1.yaxis.label.set_color(p1.get_facecolor())
-        ax2.yaxis.label.set_color(p2.get_facecolor())
-        ax3.yaxis.label.set_color(p3.get_facecolor())
-        ax4.yaxis.label.set_color(p4.get_facecolor())
+        axs[0].yaxis.label.set_color('black')
+        ax2.yaxis.label.set_color('C0')
+        ax3.yaxis.label.set_color('C1')
 
-        # plt.tight_layout()
+        # subplot annotation
+        plt.gcf().text(0.02, 0.97, 'a)', fontsize=fsize+4)
+        plt.gcf().text(0.02, 0.47, 'b)', fontsize=fsize+4)
+
         plt.savefig(r'../output/graphics/complexity_scatter_1.svg')
         plt.savefig(r'../output/graphics/complexity_scatter_1.pdf')
         plt.close()
 
-    def complexity_scatter_2(self, df: pd.DataFrame, s: int = 10,
+    def complexity_scatter_2(self, df: pd.DataFrame, s: int = 3,
                              fsize: float = 8) -> None:
+        '''plot that scatters the complexity parameters that only increase with
+        discontinuity density'''
 
         fig, ax1 = plt.subplots(figsize=(4, 3.5), layout='constrained')
         ax2 = ax1.twinx()
@@ -354,11 +356,10 @@ class plotter(utilities):
                        fontsize=fsize)
 
         p1 = ax1.scatter(df['P32'], df['Minkowski dimension'], s=s,
-                         color='black', marker='o', alpha=0.6,
+                         color='black', alpha=0.2,
                          label=self.label_map['Minkowski dimension'])
         p2 = ax2.scatter(df['P32'], df['Euler characteristic inverted'], s=s,
-                         color='white', edgecolor='black', lw=1, marker='v',
-                         alpha=0.6,
+                         color='C1', alpha=0.2,
                          label=self.label_map['Euler characteristic inverted'])
 
         ax2.legend(handles=[p1, p2], loc='lower right', framealpha=1,
@@ -368,14 +369,13 @@ class plotter(utilities):
         ax1.tick_params(axis='both', labelsize=fsize)
         ax2.tick_params(axis='both', labelsize=fsize)
 
-        ax1.yaxis.label.set_color(p1.get_facecolor())
-        ax2.yaxis.label.set_color(p2.get_facecolor())
+        ax1.yaxis.label.set_color('black')
+        ax2.yaxis.label.set_color('C1')
 
         # plt.tight_layout()
         plt.savefig(r'../output/graphics/complexity_scatter_2.svg')
         plt.savefig(r'../output/graphics/complexity_scatter_2.pdf')
         plt.close()
-
 
     def pairplot(self, df: pd.DataFrame, plot_params: list,
                  fsize: float = 7) -> None:
