@@ -6,7 +6,4 @@ output/graphics/
 
 rasters/
 
-# experimental machine learning application
-ML/
-
 src/__pycache__/
