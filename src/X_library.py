@@ -176,31 +176,34 @@ class plotter(utilities):
         print(df_new[x_param].max())
 
         # make plot
-        fig = plt.figure(tight_layout=True, figsize=(8, 6))
-        gs = gridspec.GridSpec(nrows=2, ncols=5, height_ratios=[3.5, 1])
+        fig = plt.figure(figsize=(8, 6))
+        gs = gridspec.GridSpec(nrows=2, ncols=5, height_ratios=[3.0, 1])
 
         # top part with complexity
         ax = fig.add_subplot(gs[0, :])
         ax.scatter(df_new[x_param], df_new[y_param],
-                   color='grey', alpha=0.5, s=30)
+                   color='dimgrey', alpha=0.3, s=10)
         ax.scatter(df_new.loc[ids, x_param], df_new.loc[ids, y_param],
-                   color='grey', edgecolor='black', s=90)
-        ax.set_xticks([0, 3, 10, 30])
+                   color='grey', edgecolor='black', s=90, zorder=100)
+        ax.set_xticks([0, 3, 10, 30, 100])
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         ax.xaxis.tick_top()
         text_y = df_new[y_param].max() + (df_new[y_param].max() - df_new[y_param].min()) * 0.04
         ax.text(x=1, y=text_y, s='extremely low - low', ha='center',
-                va='top', rotation=90, color='dimgrey')
+                va='top', rotation=90, color='black')
         ax.text(x=4, y=text_y, s='moderately high', ha='center', va='top',
-                rotation=90, color='dimgrey')
+                rotation=90, color='black')
         ax.text(x=11, y=text_y, s='high', ha='center', va='top',
-                rotation=90, color='dimgrey')
+                rotation=90, color='black')
         ax.text(x=31, y=text_y, s='very high', ha='center', va='top',
-                rotation=90, color='dimgrey')
+                rotation=90, color='black')
+        ax.text(x=101, y=text_y, s='extremely high (crushed)', ha='center',
+                va='top', rotation=90, color='black')
         ax.set_xlabel(self.label_map[x_param])
         ax.xaxis.set_label_position('top')
         ax.set_ylabel(f'Rock Mass Complexity\n{self.label_map[y_param]}')
-        ax.grid(alpha=0.5)
+        ax.grid(alpha=0.6)
 
         # open and slice exemplary meshes
         for i, id_ in enumerate(ids):
@@ -209,7 +212,12 @@ class plotter(utilities):
                 fr'../combinations/{id_}_discontinuities.stl')
             section = mesh.section(plane_origin=[5, 5, 5],
                                    plane_normal=[0, 0, 1])
-            section_2D, to_3D = section.to_planar()
+            # project section to 2D with explicit transformation matrix
+            section_2D, matrix = section.to_2D(
+                to_2D=np.array([[1., 0., 0., -5.],
+                                [0., 1., 0., -5.],
+                                [0., 0., 1., -5.],
+                                [0., 0., 0., 1]]))
 
             ax = fig.add_subplot(gs[1, i])
 
@@ -220,7 +228,7 @@ class plotter(utilities):
                     continue
                 # otherwise plot the discrete curve
                 discrete = entity.discrete(section_2D.vertices)
-                ax.plot(*discrete.T, color='dimgrey', lw=.5)
+                ax.plot(*discrete.T, color='dimgrey', lw=.2)
             ax.set_xlim(-5, 5)
             ax.set_ylim(-5, 5)
             ax.set_xticks([])
@@ -228,7 +236,7 @@ class plotter(utilities):
             ax.set_aspect('equal')
 
         plt.tight_layout()
-        plt.savefig(r'../output/graphics/complexity_scatter.png', dpi=600)
+        plt.savefig(r'../output/graphics/complexity_scatter.png', dpi=1200)
 
         if save_high_density is True:
             fig_hd, ax_hd = plt.subplots(figsize=(10, 10))
@@ -298,7 +306,7 @@ class plotter(utilities):
         '''plot that scatters the complexity parameters that increase and then
         decrease with discontinuity density'''
 
-        fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(4, 5),
+        fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(5, 5),
                                 layout='constrained')
         ax2 = axs[0].twinx()
         ax3 = axs[0].twinx()
@@ -404,6 +412,7 @@ class plotter(utilities):
         plt.tight_layout()
         plt.savefig(r'../output/graphics/pairplot_general.svg')
         plt.savefig(r'../output/graphics/pairplot_general.pdf')
+        plt.savefig(r'../output/graphics/pairplot_general.jpg', dpi=600)
         plt.close()
 
     def Jv_plot(self, df: pd.DataFrame, Jv_s: list,

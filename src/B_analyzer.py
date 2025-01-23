@@ -24,15 +24,12 @@ from X_library import math, parameters, utilities
 ##########################################
 
 RASTER_RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]
-DO_BLOCK_ANALYSES = False
-SAVE_BLOCKS = False  # whether or not rastered block models should be saved
+RECOMPUTE_COMPLEXITY = False  # whether complexity params should be recomputed
 
 # new parameter names that will be computed
 COMPLEXITY_COLUMNS = ['Minkowski dimension', 'structural complexity',
                       'compression ratio', 'Euler characteristic',
                       'Euler characteristic inverted']
-BLOCK_COLUMNS = ['n blocks', 'avg. block volume [m3]',
-                 'median block volume [m3]']
 
 ##########################################
 # instantiations, data loading and preprocessing
@@ -44,13 +41,10 @@ utils = utilities()
 
 pd.options.mode.chained_assignment = None
 
-df = pd.read_excel(r'../output/PDD1_1.xlsx', index_col='identifier')
-
-id_JV_max = df['Jv measured [discs/m³]'].argmax()
-id_JV_min = df['Jv measured [discs/m³]'].argmin()
-
-print(f'sample with lowest JV: {df.index[id_JV_min]}')
-print(f'sample with highest JV: {df.index[id_JV_max]}')
+if RECOMPUTE_COMPLEXITY is False:  # load precomputed df
+    df = pd.read_excel(r'../output/PDD1_2.xlsx', index_col='identifier')
+else:  # load df from prev. script
+    df = pd.read_excel(r'../output/PDD1_1.xlsx', index_col='identifier')
 
 ##########################################
 # compute "classical" rock engineering parameters
@@ -137,17 +131,14 @@ print('standard rock mass characterization parameters computed\n')
 ##########################################
 
 # add new empty columns
-if DO_BLOCK_ANALYSES is True:
-    new_cols = COMPLEXITY_COLUMNS + BLOCK_COLUMNS
-else:
-    new_cols = COMPLEXITY_COLUMNS
-for col in new_cols:
-    df[col] = np.nan
+if RECOMPUTE_COMPLEXITY is True:
+    for col in COMPLEXITY_COLUMNS:
+        df[col] = np.nan
 
 # compute fractal dimensions
 print('computing fractal dimensions')
 cols_disc_voxels = [c for c in df.columns if 'n disc. voxels' in c]
-for sample in tqdm(df.index):
+for sample in tqdm(df[df['Minkowski dimension'].isna()].index):
     # only compute for samples with all boxes calculated
     if df.loc[sample, cols_disc_voxels].isna().sum() == 0:
         df.loc[sample, 'Minkowski dimension'] = params.Minkowski(
@@ -160,10 +151,12 @@ print(f'{n_processed} / {len(df)} fractal dimensions computed')
 df['Shannon entropy'] = params.Shannon_Entropy(df)
 print('Shannon entropy computed\n')
 
-# compute complexity and block metrics
-print('computing complexity metrices and blocks')
+# compute complexity metrics
+print('computing complexity metrices')
 resolution = RASTER_RESOLUTIONS[-1]  # -1 = finest resolution
-for sample in tqdm(df.index):
+
+# try to compute complexities for samples where it is not yet computed
+for sample in tqdm(df[df['structural complexity'].isna()].index):
     fp = fr'..\rasters\{sample}_{resolution}.pkl.gz'
     try:
         with gzip.open(fp, 'rb') as f:
@@ -187,23 +180,6 @@ for sample in tqdm(df.index):
             decompressed_voxel_array)
         df.loc[sample, 'compression ratio'] = compression_ratio
 
-        if DO_BLOCK_ANALYSES is True:  # experimental
-            # TODO implement block sieve curve and DXX parameters
-            block_array, num_blocks = utils.identify_intact_rock_regions(
-                decompressed_voxel_array)
-            df.loc[sample, 'n blocks'] = num_blocks - 1  # no discontinuities
-
-            block_ids, voxels_per_block = np.unique(block_array,
-                                                    return_counts=True)
-            m3_per_block = voxels_per_block[1:] * (resolution**3)
-            df.loc[sample, 'avg. block volume [m3]'] = m3_per_block.mean()
-            df.loc[sample, 'median block volume [m3]'] = np.median(m3_per_block)
-            # TODO implement block shape analyses
-
-            if SAVE_BLOCKS is True:
-                utils.array_to_pointcloud(
-                    block_array, resolution=resolution,
-                    savepath=fr'../output/{sample}_blocks.zip')
     except FileNotFoundError:
         pass
 

@@ -12,7 +12,7 @@ dependencies:
 - scikit-learn=1.5
 - spyder-kernels=3.0
 - tqdm
-- trimesh
+- trimesh=4.6.0
 - pip:
   - pyarrow
   - openpyxl
