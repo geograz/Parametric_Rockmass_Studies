@@ -22,9 +22,9 @@ from X_library import parameters, utilities
 #############################
 # static variables and constants
 
-N_SETS_TO_PROCESS = 5000  # max number of sets to process in this run
+N_SETS_TO_PROCESS = 3000  # max number of sets to process in this run
 RASTER_RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]  # 3D grid resolution
-MAX_RESOLUTION = 0.1  # max. resolution to process in current run
+MAX_RESOLUTION = 0.05  # max. resolution to process in current run
 SAVE_CSV = False  # convert rastered discontinuity array to pointcloud & save
 SAVE_ZIP = True  # save rastered discontinuity array as zip file
 # run code for random- or sequential unprocessed samples -> multiprocessing

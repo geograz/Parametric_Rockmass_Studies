@@ -168,9 +168,10 @@ class plotter(utilities):
         id_max_c = df_new.index[df_new[y_param].argmax()]
         Jv_at_max_c = df_new.loc[id_max_c, x_param]
         c_lower_mid = df_new.loc[[id_lower, id_max_c], y_param].mean()
-        c_upper_mid = df_new.loc[[id_max_c, id_upper], y_param].mean()
+        Jv_upper_mid = df_new.loc[[id_max_c, id_upper], x_param].mean()
+        Jv_upper_mid = 50
         id_lower_mid = (df_new[df_new[x_param] < Jv_at_max_c][y_param] - c_lower_mid).abs().idxmin()
-        id_upper_mid = (df_new[df_new[x_param] > Jv_at_max_c][y_param] - c_upper_mid).abs().idxmin()
+        id_upper_mid = (df_new[df_new[x_param] > Jv_at_max_c][x_param] - Jv_upper_mid).abs().idxmin()
         ids = [id_lower, id_lower_mid, id_max_c, id_upper_mid, id_upper]
         print(ids)
         print(df_new[x_param].max())

@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Author: Dr. Georg H. Erharter - georg.erharter@ngi.no
+        PARAMETRIC ROCK MASS STUDIES
+-- computational rock mass characterization --
+
+Code author: Dr. Georg H. Erharter
+
 Script that performs different checks of the generated meshes.
 """
 
