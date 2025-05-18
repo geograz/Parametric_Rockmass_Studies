@@ -6,6 +6,7 @@ dependencies:
 - python=3.12
 - matplotlib
 - numpy
+- opencv
 - pandas
 - pip
 - scikit-image

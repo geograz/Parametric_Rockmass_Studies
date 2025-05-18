@@ -11,9 +11,9 @@ This repository contains the code and generated data that is associated with the
 
 
 ## Publications
-Methods and discussions of the results of the parametric rock mass studies can be found in the publications:
+The following publications have been produced as part of the Parametric Rock Mass Studies:
 - ERHARTER, Georg H. (2024) Rock Mass Structure Characterization Considering Finite and Folded Discontinuities: A Parametric Study. Rock Mechanics and Rock Engineering. https://doi.org/10.1007/s00603-024-03787-9
-- A second manuscript with the title "Is Complexity the Answer to the Continuum vs. Discontinuum Question in Rock Engineering?" by Georg Erharter and Davide Elmo was submitted to the journal Rock Mechanics and Rock Engineering in February 2025 and is currently under review.
+- A second paper with the title "Is Complexity the Answer to the Continuum vs. Discontinuum Question in Rock Engineering?" by Georg Erharter and Davide Elmo was submitted to the journal Rock Mechanics and Rock Engineering in February 2025 and is currently under review.
 
 
 ## Repository structure
@@ -27,6 +27,7 @@ Parametric_Rockmass_Studies
 │   ├── PDD1_0.xlsx				- result excel file containing input parameters for PDD1 generation from Erharter (2024) and compiled Grasshopper analyses
 │   ├── PDD1_1.xlsx				- result excel file extended from PDD1_0.xlsx that also contains basic voxel data parameters
 │   ├── PDD1_2.xlsx				- final result excel file extended from PDD1_1.xlsx that also contains advanced complexity analyses parameters
+├── rasters						- folder containing rastered representations of all 5000 models of PDD1 at resolutions of 0.25, 0.2, 0.15, 0.1 and 0.05 m. Total = 25 000 rasters
 ├── src							- folder with Python scripts
 │   ├── A_compiler.py				- Script that compiles the recorded data from samples of the discrete discontinuity networks and creates excel files PDD1_0.xlsx and PDD1_1.xlsx for further processing.
 │   ├── B_analyzer.py				- Script that processes the compiled records of the discrete discontinuity dataset, computes additional and complexity parameters. Output: PDD1_2.xlsx
@@ -34,10 +35,11 @@ Parametric_Rockmass_Studies
 │   ├── D_Voxel_export.py			- Script that saves a mesh of a rastered sample. For visualization purposes only.
 │   ├── E_plotter.py				- Script that produces plots and visualizations from the rock mass analyses.
 │   ├── F_MeshChecker.py			- Script that performs different checks of the generated meshes.
+│   ├── G_animation.py			    - Script that produces an animation from frames to visualize synthetic rock mass models and other 3D models.
 │   ├── X_library.py				- Script that contains a custom library with different classes of functions for math, general use (utilities), plotting and computation of parameters.
 ├── .gitignore
 ├── environment.yaml				- dependency file to use with conda
-├── Grasshopper.zip				- zipped folder containing the Grasshopper script that was used in Erharter (2024) to generate PDD1 and also the direct Grasshopper output files that specify sample input and measurements in Grasshopper
+├── Grasshopper.zip				- zipped folder containing the Grasshopper script that was used in Erharter (2024) to generate PDD1 and also the direct Grasshopper output files that specify sample input and measurements
 ├── LICENSE						- file with specifications of the applied MIT License
 ├── README.md
 ```
@@ -51,11 +53,6 @@ To do this create an environment called `Jv` using `environment.yaml` with the h
 conda env create --file environment.yaml
 ```
 
-Activate the new environment with:
-
-```bash
-conda activate Jv
-```
 
 ### contact
 georg.erharter@ngi.no

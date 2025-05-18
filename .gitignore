@@ -4,6 +4,4 @@ old_other/
 # folder with frequently changing outputs such as graphics
 output/graphics/
 
-rasters/
-
 src/__pycache__/

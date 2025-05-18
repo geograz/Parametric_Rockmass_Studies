@@ -713,6 +713,7 @@ class plotter(utilities):
 
         plt.tight_layout()
         plt.savefig(r'../output/graphics/Euler_voxels.svg')
+        plt.savefig(r'../output/graphics/Euler_voxels.pdf')
         plt.close()
 
 
