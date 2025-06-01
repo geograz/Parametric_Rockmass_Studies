@@ -29,27 +29,26 @@ Erharter, G. (2025). Raster models for paper "Is Complexity the Answer to the Co
 ## Repository structure
 ```
 Parametric_Rockmass_Studies
-├── combinations					- folder that contains all the 5000 individual samples of PDD1.
-├── output							- folder that contains computational results of analyses of the samples
-│   ├── graphics					- folder that contains visualizations of the result analyses
-│   ├── df_samples.csv				- log file that indicates the processing state of raster samples of different resolutions
-│   ├── parameters.xlsx			- OUTDATED excel files that contains descriptions for the parameters collected as part of PDD1 generation in Erharter (2024)
-│   ├── PDD1_0.xlsx				- result excel file containing input parameters for PDD1 generation from Erharter (2024) and compiled Grasshopper analyses
-│   ├── PDD1_1.xlsx				- result excel file extended from PDD1_0.xlsx that also contains basic voxel data parameters
-│   ├── PDD1_2.xlsx				- final result excel file extended from PDD1_1.xlsx that also contains advanced complexity analyses parameters
-├── src							- folder with Python scripts
-│   ├── A_compiler.py				- Script that compiles the recorded data from samples of the discrete discontinuity networks and creates excel files PDD1_0.xlsx and PDD1_1.xlsx for further processing.
-│   ├── B_analyzer.py				- Script that processes the compiled records of the discrete discontinuity dataset, computes additional and complexity parameters. Output: PDD1_2.xlsx
+├── combinations			- folder that contains all the 5000 individual samples of PDD1.
+├── output			- folder that contains computational results of analyses of the samples
+│   ├── graphics			- folder that contains visualizations of the result analyses
+│   ├── df_samples.csv			- log file that indicates the processing state of raster samples of different resolutions
+│   ├── PDD1_0.xlsx			- result excel file containing input parameters for PDD1 generation from Erharter (2024) and compiled Grasshopper analyses
+│   ├── PDD1_1.xlsx			- result excel file extended from PDD1_0.xlsx that also contains basic voxel data parameters
+│   ├── PDD1_2.xlsx			- final result excel file extended from PDD1_1.xlsx that also contains advanced complexity analyses parameters
+├── src			- folder with Python scripts
+│   ├── A_compiler.py			- Script that compiles the recorded data from samples of the discrete discontinuity networks and creates excel files PDD1_0.xlsx and PDD1_1.xlsx for further processing.
+│   ├── B_analyzer.py			- Script that processes the compiled records of the discrete discontinuity dataset, computes additional and complexity parameters. Output: PDD1_2.xlsx
 │   ├── C_rasterizer.py			- Script that loads meshes and computes rasters at different resolution from them for further analyses. Does not include raster analyses - only generation.
 │   ├── D_Voxel_export.py			- Script that saves a mesh of a rastered sample. For visualization purposes only.
-│   ├── E_plotter.py				- Script that produces plots and visualizations from the rock mass analyses.
+│   ├── E_plotter.py			- Script that produces plots and visualizations from the rock mass analyses.
 │   ├── F_MeshChecker.py			- Script that performs different checks of the generated meshes.
-│   ├── G_animation.py			    - Script that produces an animation from frames to visualize synthetic rock mass models and other 3D models.
-│   ├── X_library.py				- Script that contains a custom library with different classes of functions for math, general use (utilities), plotting and computation of parameters.
+│   ├── G_animation.py			- Script that produces an animation from frames to visualize synthetic rock mass models and other 3D models.
+│   ├── X_library.py			- Script that contains a custom library with different classes of functions for math, general use (utilities), plotting and computation of parameters.
 ├── .gitignore
-├── environment.yaml				- dependency file to use with conda
-├── Grasshopper.zip				- zipped folder containing the Grasshopper script that was used in Erharter (2024) to generate PDD1 and also the direct Grasshopper output files that specify sample input and measurements
-├── LICENSE						- file with specifications of the applied MIT License
+├── environment.yaml			- dependency file to use with conda
+├── Grasshopper.zip			- zipped folder containing the Grasshopper script that was used in Erharter (2024) to generate PDD1 and also the direct Grasshopper output files that specify sample input and measurements
+├── LICENSE			- file with specifications of the applied MIT License
 ├── README.md
 ```
 
