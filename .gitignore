@@ -4,4 +4,7 @@ old_other/
 # folder with frequently changing outputs such as graphics
 output/graphics/
 
+# folder with computed raster representations of PDD1
+rasters/
+
 src/__pycache__/

@@ -16,6 +16,16 @@ The following publications have been produced as part of the Parametric Rock Mas
 - A second paper with the title "Is Complexity the Answer to the Continuum vs. Discontinuum Question in Rock Engineering?" by Georg Erharter and Davide Elmo was submitted to the journal Rock Mechanics and Rock Engineering in February 2025 and is currently under review.
 
 
+## Supplementary data
+All 5000 models of PDD1 were rastered at resolutions of 0.25, 0.2, 0.15, 0.1 and 0.05 m. Total = 25 000 rasters. Due to size limitations, the raster models that were created from PDD1 could not have been included in this repository directly. Instead the dataset can be found on **Zenodo** under this link: https://doi.org/10.5281/zenodo.15570244
+
+To use these models with the code, the folder with the models needs to be unzipped and copied into the top level of the repository (i.e. at the level of "src").
+
+Full Data reference:
+
+Erharter, G. (2025). Raster models for paper "Is Complexity the Answer to the Continuum vs. Discontinuum Question in Rock Engineering?" by G. Erharter and D. Elmo (1.0.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.15570244
+
+
 ## Repository structure
 ```
 Parametric_Rockmass_Studies
@@ -27,7 +37,6 @@ Parametric_Rockmass_Studies
 │   ├── PDD1_0.xlsx				- result excel file containing input parameters for PDD1 generation from Erharter (2024) and compiled Grasshopper analyses
 │   ├── PDD1_1.xlsx				- result excel file extended from PDD1_0.xlsx that also contains basic voxel data parameters
 │   ├── PDD1_2.xlsx				- final result excel file extended from PDD1_1.xlsx that also contains advanced complexity analyses parameters
-├── rasters						- folder containing rastered representations of all 5000 models of PDD1 at resolutions of 0.25, 0.2, 0.15, 0.1 and 0.05 m. Total = 25 000 rasters
 ├── src							- folder with Python scripts
 │   ├── A_compiler.py				- Script that compiles the recorded data from samples of the discrete discontinuity networks and creates excel files PDD1_0.xlsx and PDD1_1.xlsx for further processing.
 │   ├── B_analyzer.py				- Script that processes the compiled records of the discrete discontinuity dataset, computes additional and complexity parameters. Output: PDD1_2.xlsx
@@ -43,6 +52,7 @@ Parametric_Rockmass_Studies
 ├── LICENSE						- file with specifications of the applied MIT License
 ├── README.md
 ```
+
 
 ## Requirements
 
