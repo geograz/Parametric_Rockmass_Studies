@@ -1,15 +1,6 @@
 # Parametric_Rockmass_Studies
 Quantifying rock mass structure for engineering purposes has always been a central topic of rock engineering. Some of the used methods today (2025) are, however, decades old and could benefit from modern computational tools. "Parametric Rock Mass Studies" comprises a set of investigations that review and revise methods of rock mass structure characterization.
 
-<<<<<<< HEAD
-## Methods
-Samples of discrete discontinuity networks are created with the visual programming language "Grasshopper" in the computer aided design software Rhino 3D (https://www.rhino3d.com/). "Virtual measurements" are then taken on these samples and used for further processing and investigation of rock mass parameters.
-
-## Publications
-A first paper about this study was published in the journal Rock Mechanics and Rock Engineering:
-- Erharter, G.H. Rock Mass Structure Characterization Considering Finite and Folded Discontinuities: A Parametric Study. Rock Mech Rock Eng (2024). [https://doi.org/10.1007/s00603-024-03787-9](https://link.springer.com/article/10.1007/s00603-024-03787-9)
-
-=======
 The theoretical approach is heavily based on discrete discontinuity models and a first benchmark dataset of 5000 discontinuity models - called **PDD1** - was generated in the first study by Erharter (2024).
 
 This repository contains the code and generated data that is associated with the studies. All samples of **PDD1** can be found in the folder `discontinuities`.
@@ -34,7 +25,6 @@ Full Data reference:
 
 Erharter, G. (2025). Raster models for paper "Is Complexity the Answer to the Continuum vs. Discontinuum Question in Rock Engineering?" by G. Erharter and D. Elmo (1.0.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.15570244
 
->>>>>>> origin/developer
 
 ## Repository structure
 ```
@@ -73,5 +63,5 @@ conda env create --file environment.yaml
 ```
 
 
-### Contact
+### contact
 georg.erharter@ngi.no
