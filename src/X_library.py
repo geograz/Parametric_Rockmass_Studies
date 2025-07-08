@@ -1,23 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-Code to the paper "Rock mass structure characterization considering finite and
-folded discontinuities"
-Dr. Georg H. Erharter - 2023
-DOI: XXXXXXXXXXX
+        PARAMETRIC ROCK MASS STUDIES
+-- computational rock mass characterization --
+
+Code author: Dr. Georg H. Erharter
 
 Script that contains a custom library with different classes of functions for
-math, plotting or general use (utilities).
+math, general use (utilities), plotting and computation of parameters.
 """
 
 import numpy as np
 import pandas as pd
+from scipy.ndimage import generic_filter, label
 from scipy.optimize import curve_fit
+from scipy.stats import entropy
 from skimage.transform import resize
-from skimage.measure import block_reduce
+from skimage.measure import block_reduce, euler_number
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import MinMaxScaler
-import warnings
+import trimesh
 import matplotlib
+import matplotlib.gridspec as gridspec
+import zlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
@@ -29,6 +33,7 @@ class math:
         pass
 
     def unit_vector(self, vector):
+        '''compute the unit vector of another vector'''
         return vector / np.linalg.norm(vector, axis=1)[:, None]
 
     def angle_between(self, v1, v2):
@@ -52,99 +57,6 @@ class utilities:
 
     def __init__(self):
         self.sclr = MinMaxScaler()
-
-    def cust_dropna(self, df):
-        df.replace([np.inf, -np.inf], np.nan, inplace=True)
-        df.dropna(inplace=True)
-        return df
-
-    def convert_inf(self, x: np.array) -> np.array:
-        '''function converts all positive and negative infinites to np.nan'''
-        return np.where((x == np.inf) | (x == -np.inf), np.nan, x)
-
-    def assess_fit2(self, x: np.array, y: np.array,
-                    scale_indiv: bool = False) -> float:
-        '''Function assesses how well two sets of parameters fit to each other.
-        Assessment is done based on the R2 score. Parameters can be scaled to
-        the target or not, depending on the parameter.'''
-
-        y = self.convert_inf(y)
-        if np.isnan(y).sum() == 0:
-            x = self.sclr.fit_transform(x.reshape(-1, 1))
-            if scale_indiv is False:
-                y = self.sclr.transform(y.reshape(-1, 1))
-            else:
-                y = self.sclr.fit_transform(y.reshape(-1, 1))
-            x = self.convert_inf(x)
-            y = self.convert_inf(y)
-            if np.isnan(x).sum() > 0 or np.isnan(y).sum() > 0:
-                pass
-            else:
-                warnings.filterwarnings('ignore')
-                score = r2_score(x, y)
-            return score
-
-    def assess_fit(self, df, x, y, dropna=True, scale_indiv=False):
-        warnings.filterwarnings('ignore')
-        df_1 = df[[x, y]]
-        if dropna is True:
-            df_1 = self.cust_dropna(df_1)
-        if len(df_1) < 100:
-            score = 2
-        else:
-            df_1['x_new'] = self.sclr.fit_transform(df_1[x].values.reshape(-1, 1))
-            if scale_indiv is False:
-                df_1['y_new'] = self.sclr.transform(df_1[y].values.reshape(-1, 1))
-            else:
-                df_1['y_new'] = self.sclr.fit_transform(df_1[y].values.reshape(-1, 1))
-            df_1 = self.cust_dropna(df_1)
-            if len(df_1) < 100:
-                score = 2
-            else:
-                score = r2_score(df_1['x_new'], df_1['y_new'])
-        return score
-
-    def assess_fits(self, df: pd.DataFrame, features: list,
-                    targets: list) -> list:
-        scores = []
-
-        n_features = len(features)
-        for t in targets:
-            print(f'compute {n_features} scores for {t}')
-            if t == 'Jv measured [discs/m³]':
-                scale_indiv = False
-            else:
-                scale_indiv = True
-            scores_temp = []
-            for i, f in enumerate(features):
-                scores_temp.append(self.assess_fit(df, x=t, y=f, dropna=True,
-                                                   scale_indiv=scale_indiv))
-            scores.append(np.array(scores_temp))
-
-        return scores
-
-    def get_best_feature(self, scores, features):
-        id_fails = np.where(scores == 2)[0]
-        scores = np.delete(scores, id_fails)
-        all_features_new = np.delete(np.array(features), id_fails)
-
-        feature_max_score = all_features_new[np.argmax(scores)]
-        return feature_max_score, max(scores)
-
-    def voxel2grid(self, voxels, RESOLUTION, color):
-        '''function converts an open3d voxel grid into a structured 3D raster
-        numpy array'''
-        voxels = voxels.get_voxels()
-        indices = np.stack(list(vx.grid_index for vx in voxels)).astype('int16')
-        colors = np.stack(list(vx.color for vx in voxels)).astype('int8')
-        # crop voxels to the bounding box
-        id_valid = np.where((np.min(indices, axis=1) >= 0) &
-                            (np.max(indices, axis=1) < RESOLUTION))[0]
-        indices = indices[id_valid]
-        colors = colors[id_valid]
-        intersecting = np.where(np.sum(colors, axis=1) == color*3, -1, 1)
-        idx = np.lexsort((indices[:,0], indices[:,1], indices[:,2])).reshape(RESOLUTION, RESOLUTION, RESOLUTION)
-        return intersecting[idx]
 
     def power_law(self, x, a, b):
         return a * np.power(x, b)
@@ -181,11 +93,328 @@ class utilities:
         a_fit, b_fit, c_fit = params
         return a_fit, b_fit, c_fit
 
+    def array_to_pointcloud(self, array: np.array, resolution: float,
+                            savepath: str) -> None:
+        '''function takes a structured array and computes the coordinates for
+        each point and saves them to a zipped csv file'''
+        n = array.shape[0]
+        x = np.arange(0, n * resolution, resolution)
+        y = np.arange(0, n * resolution, resolution)
+        z = np.arange(0, n * resolution, resolution)
+        # Create the 3D grid of coordinates
+        X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+        x_flat = X.ravel()
+        y_flat = Y.ravel()
+        z_flat = Z.ravel()
+        data_flat = array.ravel()
+        output = np.column_stack((x_flat, y_flat, z_flat, data_flat))
+
+        df = pd.DataFrame(data=output, columns=['x', 'y', 'z', 'v'])
+        df = df.astype({'x': 'float16', 'y': 'float16', 'z': 'float16',
+                        'v': 'int32'})
+        compression_options = dict(method='zip', archive_name='blocks.csv')
+        df.to_csv(savepath, index=False, compression=compression_options)
+
+    def identify_intact_rock_regions(self, array: np.array) -> list:
+        """ Identifies all disconnected regions of intact rock (value 0) in a
+        3D binary array.
+        Parameters:
+        - array: 3D numpy array of binary values (0 and 1)
+        Returns:
+        - labeled_array: 3D array with unique labels for each connected region
+        of 0s
+        - num_features: Total number of disconnected regions identified"""
+        # Define the structure for connectivity
+        connectivity = np.array([[[0, 0, 0],
+                                  [0, 1, 0],
+                                  [0, 0, 0]],
+                                 [[0, 1, 0],
+                                  [1, 1, 1],
+                                  [0, 1, 0]],
+                                 [[0, 0, 0],
+                                  [0, 1, 0],
+                                  [0, 0, 0]]], dtype=int)
+
+        # Perform connected component labeling
+        labeled_array, num_features = label(array == 0, structure=connectivity)
+
+        return labeled_array, num_features
+
 
 class plotter(utilities):
 
     def __init__(self):
-        pass
+        self.label_map = {
+            'Jv measured [discs/m³]': 'volumetric joint count - $J_v$ [discontinuities/volume]',
+            'P32': '$P32$',
+            'Shannon entropy': 'Shannon entropy ($H$)',
+            'compression ratio': 'Compression complexity ($C_c$)',
+            'structural complexity': 'Multiscale structural complexity ($C$)',
+            'Euler characteristic': 'Euler characteristic ($χ$)\nfor discontinuities',
+            'Minkowski dimension': 'Fractal dimension ($D$)',
+            'Euler characteristic inverted': 'Euler characteristic($χ$)\nfor intact rock'}
+
+    def complexity_scatter(self, df: pd.DataFrame,
+                           x_param: str = 'Jv measured [discs/m³]',
+                           y_param: str = 'structural complexity',
+                           save_high_density: bool = False) -> None:
+        '''plots discontinuity density parameter against complexity parameter
+        and shows examples for final interpretation'''
+
+        # find examples of samples to add to plot
+        df_new = df.dropna(axis=0, subset=[x_param, y_param])
+        id_lower = df_new.index[df_new[x_param].argmin()]
+        id_upper = df_new.index[df_new[x_param].argmax()]
+        id_max_c = df_new.index[df_new[y_param].argmax()]
+        Jv_at_max_c = df_new.loc[id_max_c, x_param]
+        c_lower_mid = df_new.loc[[id_lower, id_max_c], y_param].mean()
+        Jv_upper_mid = df_new.loc[[id_max_c, id_upper], x_param].mean()
+        Jv_upper_mid = 50
+        id_lower_mid = (df_new[df_new[x_param] < Jv_at_max_c][y_param] - c_lower_mid).abs().idxmin()
+        id_upper_mid = (df_new[df_new[x_param] > Jv_at_max_c][x_param] - Jv_upper_mid).abs().idxmin()
+        ids = [id_lower, id_lower_mid, id_max_c, id_upper_mid, id_upper]
+        print(ids)
+        print(df_new[x_param].max())
+
+        # make plot
+        fig = plt.figure(figsize=(8, 6))
+        gs = gridspec.GridSpec(nrows=2, ncols=5, height_ratios=[3.0, 1])
+
+        # top part with complexity
+        ax = fig.add_subplot(gs[0, :])
+        ax.scatter(df_new[x_param], df_new[y_param],
+                   color='dimgrey', alpha=0.3, s=10)
+        ax.scatter(df_new.loc[ids, x_param], df_new.loc[ids, y_param],
+                   color='grey', edgecolor='black', s=90, zorder=100)
+        ax.set_xticks([0, 3, 10, 30, 100])
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+        ax.xaxis.tick_top()
+        text_y = df_new[y_param].max() + (df_new[y_param].max() - df_new[y_param].min()) * 0.04
+        ax.text(x=1, y=text_y, s='extremely low - low', ha='center',
+                va='top', rotation=90, color='black')
+        ax.text(x=4, y=text_y, s='moderately high', ha='center', va='top',
+                rotation=90, color='black')
+        ax.text(x=11, y=text_y, s='high', ha='center', va='top',
+                rotation=90, color='black')
+        ax.text(x=31, y=text_y, s='very high', ha='center', va='top',
+                rotation=90, color='black')
+        ax.text(x=101, y=text_y, s='extremely high (crushed)', ha='center',
+                va='top', rotation=90, color='black')
+        ax.set_xlabel(self.label_map[x_param])
+        ax.xaxis.set_label_position('top')
+        ax.set_ylabel(f'Rock Mass Complexity\n{self.label_map[y_param]}')
+        ax.grid(alpha=0.6)
+
+        # open and slice exemplary meshes
+        for i, id_ in enumerate(ids):
+
+            mesh = trimesh.load_mesh(
+                fr'../combinations/{id_}_discontinuities.stl')
+            section = mesh.section(plane_origin=[5, 5, 5],
+                                   plane_normal=[0, 0, 1])
+            # project section to 2D with explicit transformation matrix
+            section_2D, matrix = section.to_2D(
+                to_2D=np.array([[1., 0., 0., -5.],
+                                [0., 1., 0., -5.],
+                                [0., 0., 1., -5.],
+                                [0., 0., 0., 1]]))
+
+            ax = fig.add_subplot(gs[1, i])
+
+            for entity in section_2D.entities:
+                # if the entity has it's own plot method use it
+                if hasattr(entity, 'plot'):
+                    entity.plot(section_2D.vertices)
+                    continue
+                # otherwise plot the discrete curve
+                discrete = entity.discrete(section_2D.vertices)
+                ax.plot(*discrete.T, color='dimgrey', lw=.2)
+            ax.set_xlim(-5, 5)
+            ax.set_ylim(-5, 5)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_aspect('equal')
+
+        plt.tight_layout()
+        plt.savefig(r'../output/graphics/complexity_scatter.png', dpi=1200)
+
+        if save_high_density is True:
+            fig_hd, ax_hd = plt.subplots(figsize=(10, 10))
+            for entity in section_2D.entities:
+                # if the entity has it's own plot method use it
+                if hasattr(entity, 'plot'):
+                    entity.plot(section_2D.vertices)
+                    continue
+                # otherwise plot the discrete curve
+                discrete = entity.discrete(section_2D.vertices)
+                ax_hd.plot(*discrete.T, color='dimgrey', lw=.5)
+            ax_hd.set_xlim(-5, 5)
+            ax_hd.set_ylim(-5, 5)
+            ax_hd.set_xticks([])
+            ax_hd.set_yticks([])
+            ax_hd.set_aspect('equal')
+            plt.tight_layout()
+            plt.savefig(
+                r'../output/graphics/complexity_scatter_sample.svg')
+
+    def advanced_parameter_scatter_plot(self, df: pd.DataFrame,
+                                        close: bool = True) -> None:
+        '''function plots structural complexity against different other
+        parameters'''
+        def add_scatter(ax: plt.axis, x: str, y: str,
+                        yscale: str = None) -> None:
+            ax.scatter(df[x], df[y], alpha=0.5, color='black',
+                       edgecolor='grey', s=10)
+            if yscale == 'log':
+                ax.set_yscale('log')
+            ax.set_xlabel(self.label_map[x])
+            ax.set_ylabel(self.label_map[y])
+            ax.grid(alpha=0.5)
+
+        fig, axs = plt.subplots(nrows=3, ncols=2, figsize=(6.85039, 9.2126))
+
+        add_scatter(axs[0, 0], 'P32', 'Shannon entropy')
+        add_scatter(axs[0, 1], 'P32', 'compression ratio')
+        add_scatter(axs[1, 0], 'P32', 'structural complexity')
+        add_scatter(axs[1, 1], 'P32', 'Euler characteristic')
+        add_scatter(axs[2, 0], 'P32', 'Minkowski dimension')
+        add_scatter(axs[2, 1], 'P32', 'Euler characteristic inverted')
+
+        plt.tight_layout()
+        # subplot labels
+        x1, x2 = 0.13, 0.66
+        plt.text(x1, 0.96, 'a)', fontsize=14,
+                 transform=plt.gcf().transFigure)
+        plt.text(x2, 0.96, 'b)', fontsize=14,
+                 transform=plt.gcf().transFigure)
+        plt.text(x1, 0.63, 'c)', fontsize=14,
+                 transform=plt.gcf().transFigure)
+        plt.text(x2, 0.63, 'd)', fontsize=14,
+                 transform=plt.gcf().transFigure)
+        plt.text(x1, 0.30, 'e)', fontsize=14,
+                 transform=plt.gcf().transFigure)
+        plt.text(x2, 0.30, 'f)', fontsize=14,
+                 transform=plt.gcf().transFigure)
+
+        plt.savefig(r'../output/graphics/advanced_parameter_plot.svg')
+        plt.savefig(r'../output/graphics/advanced_parameter_plot.pdf')
+        if close is True:
+            plt.close()
+
+    def complexity_scatter_1(self, df: pd.DataFrame, s: int = 3,
+                             fsize: float = 8) -> None:
+        '''plot that scatters the complexity parameters that increase and then
+        decrease with discontinuity density'''
+
+        fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(5, 5),
+                                layout='constrained')
+        ax2 = axs[0].twinx()
+        ax3 = axs[0].twinx()
+
+        axs[0].set_ylabel(self.label_map['compression ratio'], fontsize=fsize)
+        ax2.set_ylabel(self.label_map['Shannon entropy'], fontsize=fsize)
+        ax3.set_ylabel(self.label_map['structural complexity'], fontsize=fsize)
+        axs[1].set_ylabel(self.label_map['Euler characteristic'], fontsize=fsize)
+        axs[1].set_xlabel(self.label_map['P32'], fontsize=fsize)
+
+        axs[0].scatter(df['P32'], df['compression ratio'], s=s, color='black',
+                       alpha=0.2, label=self.label_map['compression ratio'])
+        ax2.scatter(df['P32'], df['Shannon entropy'], s=s, color='C0',
+                    alpha=0.2, label=self.label_map['Shannon entropy'])
+        ax3.scatter(df['P32'], df['structural complexity'], s=s, color='C1',
+                    alpha=0.2, label=self.label_map['structural complexity'])
+        axs[1].scatter(df['P32'], df['Euler characteristic'], s=s,
+                       color='black', alpha=0.2,
+                       label=self.label_map['Euler characteristic'])
+
+        axs[0].grid(alpha=0.5)
+        axs[1].grid(alpha=0.5)
+        # move third y axis further to the right
+        ax3.spines['right'].set_position(('outward', 40))
+
+        axs[0].tick_params(axis='both', labelsize=fsize)
+        axs[0].xaxis.set_ticklabels([])
+        ax2.tick_params(axis='both', labelsize=fsize)
+        ax3.tick_params(axis='both', labelsize=fsize)
+        axs[1].tick_params(axis='both', labelsize=fsize)
+
+        axs[0].yaxis.label.set_color('black')
+        ax2.yaxis.label.set_color('C0')
+        ax3.yaxis.label.set_color('C1')
+
+        # subplot annotation
+        plt.gcf().text(0.02, 0.97, 'a)', fontsize=fsize+4)
+        plt.gcf().text(0.02, 0.47, 'b)', fontsize=fsize+4)
+
+        plt.savefig(r'../output/graphics/complexity_scatter_1.svg')
+        plt.savefig(r'../output/graphics/complexity_scatter_1.pdf')
+        plt.close()
+
+    def complexity_scatter_2(self, df: pd.DataFrame, s: int = 3,
+                             fsize: float = 8) -> None:
+        '''plot that scatters the complexity parameters that only increase with
+        discontinuity density'''
+
+        fig, ax1 = plt.subplots(figsize=(4, 3.5), layout='constrained')
+        ax2 = ax1.twinx()
+
+        ax1.set_xlabel(self.label_map['P32'], fontsize=fsize)
+        ax1.set_ylabel(self.label_map['Minkowski dimension'], fontsize=fsize)
+        ax2.set_ylabel(self.label_map['Euler characteristic inverted'],
+                       fontsize=fsize)
+
+        p1 = ax1.scatter(df['P32'], df['Minkowski dimension'], s=s,
+                         color='black', alpha=0.2,
+                         label=self.label_map['Minkowski dimension'])
+        p2 = ax2.scatter(df['P32'], df['Euler characteristic inverted'], s=s,
+                         color='C1', alpha=0.2,
+                         label=self.label_map['Euler characteristic inverted'])
+
+        ax2.legend(handles=[p1, p2], loc='lower right', framealpha=1,
+                   fontsize=fsize)
+        ax1.grid(alpha=0.5)
+
+        ax1.tick_params(axis='both', labelsize=fsize)
+        ax2.tick_params(axis='both', labelsize=fsize)
+
+        ax1.yaxis.label.set_color('black')
+        ax2.yaxis.label.set_color('C1')
+
+        # plt.tight_layout()
+        plt.savefig(r'../output/graphics/complexity_scatter_2.svg')
+        plt.savefig(r'../output/graphics/complexity_scatter_2.pdf')
+        plt.close()
+
+    def pairplot(self, df: pd.DataFrame, plot_params: list,
+                 fsize: float = 7) -> None:
+        '''pairplot'''
+        n_params = len(plot_params)
+        counter = 1
+
+        fig = plt.figure(figsize=(16, 16))
+        for i in range(n_params):
+            for j in range(n_params):
+                ax = fig.add_subplot(n_params, n_params, counter)
+                if i == j:  # diagonal
+                    ax.hist(df[plot_params[i]], bins=30, color='grey',
+                            edgecolor='black')
+                    ax.set_xlabel(plot_params[i], fontsize=fsize)
+                else:  # scatter
+                    ax.scatter(df[plot_params[i]], df[plot_params[j]],
+                               color='grey', edgecolor='black', s=2, alpha=0.3)
+                    ax.set_xlabel(self.label_map[plot_params[i]],
+                                  fontsize=fsize)
+                    ax.set_ylabel(self.label_map[plot_params[j]],
+                                  fontsize=fsize)
+                ax.tick_params(axis='both', labelsize=fsize)
+                counter += 1
+
+        plt.tight_layout()
+        plt.savefig(r'../output/graphics/pairplot_general.svg')
+        plt.savefig(r'../output/graphics/pairplot_general.pdf')
+        plt.savefig(r'../output/graphics/pairplot_general.jpg', dpi=600)
+        plt.close()
 
     def Jv_plot(self, df: pd.DataFrame, Jv_s: list,
                 limit: float = 100) -> None:
@@ -215,25 +444,14 @@ class plotter(utilities):
         ax.legend(loc='upper right')
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/JVs.png', dpi=600)
+        plt.savefig(r'../output/graphics/JVs.pdf', dpi=600)
         plt.close()
 
-    def top_x_barplot(self, values: np.array, labels: np.array, title: str,
-                      n_show: int = 10) -> None:
-        '''barplot that visualizes the highest scoring values of feature
-        engineering'''
-        fig, ax = plt.subplots(figsize=(16, 9))
-        ax.bar(x=np.arange(n_show), height=values[:n_show])
-        ax.set_xticks(np.arange(n_show))
-        ax.set_xticklabels(labels[:n_show],
-                           horizontalalignment='right', rotation=40)
-        ax.grid(alpha=0.5)
-        ax.set_xlabel(f'{n_show} highest values')
-        ax.set_title(title)
-        plt.tight_layout()
-
-    def custom_pairplot(self, df: pd.DataFrame, plot_params: list,
-                        relation_dic: dict, fsize: float = 7) -> None:
+    def relation_type_pairplot(self, df: pd.DataFrame, plot_params: list,
+                               relation_dic: dict, fsize: float = 7) -> None:
+        '''pairplot that shows scatterplots of parameters against each other
+        above the diagonal, histograms in the diagonal and relationship types
+        below the diagonal'''
         n_params = len(plot_params)
         counter = 1
 
@@ -271,7 +489,7 @@ class plotter(utilities):
                 counter += 1
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/pairplot.png', dpi=600)
+        plt.savefig(r'../output/graphics/pairplot_relation.pdf', dpi=600)
         plt.close()
 
     def scatter_combinations(self, df: pd.DataFrame, relation_dic: dict,
@@ -286,7 +504,7 @@ class plotter(utilities):
                     x, y = plot_params[i], plot_params[j]
                     # fit function to data
                     df_tmp = df.dropna(subset=[x, y])
-                    df_tmp.sort_values(by=x, inplace=True)
+                    df_tmp = df_tmp.sort_values(by=x)
 
                     fig, ax = plt.subplots(figsize=(8, 8))
                     ax.scatter(df_tmp[x], df_tmp[y], alpha=0.5)
@@ -299,7 +517,7 @@ class plotter(utilities):
                         r2 = round(r2_score(df_tmp[y].values, function_vals),
                                    2)
                         ax.plot(df_tmp[x].values, function_vals, color='black',
-                                label=f'linear fit, r2: {r2}\n{y} = {round(z_1d[0], 3)} * {x} + {round(z_1d[1], 3)}')
+                                label=f'linear fit, r2: {r2}\n{y} = {round(z_1d[0], 6)} * {x} + {round(z_1d[1], 6)}')
 
                     elif [x, y] in relation_dic['exponential']:
                         a, b, c = self.fit_exponential(df_tmp[x].values,
@@ -324,14 +542,14 @@ class plotter(utilities):
                             y_fit = self.power_law(df_tmp[x].values, a, b)
                             r2 = round(r2_score(df_tmp[y].values, y_fit), 2)
                             ax.plot(df_tmp[x].values, y_fit, color='black',
-                                    label=f'powerlaw fit, r2: {r2}\n{y} = {round(a, 3)}*{x}^{round(b, 3)}')
+                                    label=f'powerlaw fit, r2: {r2}\n{y} = {round(a, 6)}*{x}^{round(b, 6)}')
 
                     ax.set_xlabel(x)
                     ax.set_ylabel(y)
                     ax.grid(alpha=0.5)
                     ax.legend()
                     plt.tight_layout()
-                    plt.savefig(fr'../graphics/scatters/{params_dict[x]}_{params_dict[y]}.png', dpi=150)
+                    plt.savefig(fr'../output/graphics/scatters/{params_dict[x]}_{params_dict[y]}.svg', dpi=150)
                     plt.close()
 
     def RQD_spacing_hist_plot(self, df: pd.DataFrame) -> None:
@@ -345,7 +563,7 @@ class plotter(utilities):
         ax2.set_title('avg. app. spacing [m]')
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/RQD_hist.png', dpi=600)
+        plt.savefig(r'../output/graphics/RQD_hist.pdf', dpi=600)
         plt.close()
 
     def Pij_plot(self, df: pd.DataFrame, fsize: float = 15) -> None:
@@ -385,7 +603,7 @@ class plotter(utilities):
         fig.text(x=0.065, y=0.75, s='1D', ha='center', fontsize=fsize)
 
         plt.tight_layout(rect=(0.07, 0, 1, 0.93))
-        plt.savefig(r'../graphics/Pij_plot.png', dpi=600)
+        plt.savefig(r'../output/graphics/Pij_plot.pdf', dpi=600)
         plt.close()
 
     def directional_lineplot(self, df: pd.DataFrame) -> None:
@@ -406,14 +624,14 @@ class plotter(utilities):
             ax.set_xticklabels(['X', 'Y', 'Z'])
             ax.set_ylabel(p.replace('_X', ''))
         plt.tight_layout()
-        plt.savefig(r'../graphics/directional_plot.png', dpi=300)
+        plt.savefig(r'../output/graphics/directional_plot.pdf', dpi=300)
         plt.close()
 
     def Q_Jv_plot(self, df: pd.DataFrame) -> None:
         x_min, x_max = 0, 125
         y_min, y_max = 0.1, 100
 
-        fig, ax = plt.subplots(figsize=(7, 7))
+        fig, ax = plt.subplots(figsize=(6, 6))
         cax = ax.scatter(df['Jv measured [discs/m³]'], df['Q_struct'],
                          c=df['avg. RQD'], alpha=0.6, vmin=0, vmax=100,
                          zorder=10)
@@ -422,18 +640,18 @@ class plotter(utilities):
         ax.vlines([1, 3, 10, 30, 60], ymin=y_min, ymax=y_max, color='black',
                   zorder=1)
 
-        ax.text(1.1, 0.9, 'very poor', va='top')
-        ax.text(1.1, 3.5, 'poor', va='top')
-        ax.text(1.1, 9, 'fair', va='top')
+        ax.text(1.1, 0.95, 'very poor', va='top')
+        ax.text(1.1, 3.9, 'poor', va='top')
+        ax.text(1.1, 9.5, 'fair', va='top')
         ax.text(1.1, 39, 'good', va='top')
         ax.text(1.1, 99, 'very good', va='top')
 
-        ax.text(0.95, 0.15, 'very large\nblocks', rotation=-90, ha='right')
-        ax.text(2.9, 0.15, 'large blocks', rotation=-90, ha='right')
-        ax.text(9, 0.15, 'medium-sized\nblocks', rotation=-90, ha='right')
-        ax.text(29, 0.15, 'small blocks', rotation=-90, ha='right')
-        ax.text(59, 0.15, 'very small\nblocks', rotation=-90, ha='right')
-        ax.text(99, 0.15, 'crushed rock', rotation=-90, ha='right')
+        ax.text(0.95, 0.11, 'very large\nblocks', rotation=-90, ha='right')
+        ax.text(2.9, 0.11, 'large blocks', rotation=-90, ha='right')
+        ax.text(9, 0.11, 'medium-sized\nblocks', rotation=-90, ha='right')
+        ax.text(29, 0.11, 'small blocks', rotation=-90, ha='right')
+        ax.text(59, 0.11, 'very small\nblocks', rotation=-90, ha='right')
+        ax.text(99, 0.11, 'crushed rock', rotation=-90, ha='right')
 
         ax.set_xscale('log')
         ax.set_yscale('log')
@@ -441,16 +659,61 @@ class plotter(utilities):
         ax.set_yticks([1, 4, 10, 40, 100])
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
         ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-        ax.set_xlim(left=x_min, right=x_max)
+        ax.set_xlim(right=x_max)
         ax.set_ylim(bottom=y_min, top=y_max)
         ax.set_xlabel('Jv measured [discs/m³]')
-        ax.set_ylabel('Q structural (RQD/Jn)')
+        ax.set_ylabel('RQD/Jn')
 
         cbar = plt.colorbar(cax)
         cbar.set_label('RQD')
 
         plt.tight_layout()
-        plt.savefig(r'../graphics/Q_Jv_plot.png', dpi=600)
+        plt.savefig(r'../output/graphics/Q_Jv_plot.pdf')
+        plt.close()
+
+    def Euler_plot(self) -> None:
+        '''Figure that plots some generic examples of the Euler
+        characteristic'''
+        # create generic voxel arrays of shapes
+        negative_array = np.ones((5, 5, 5), dtype=int)
+        negative_array[1, :, 1] = 0  # Create a tunnel
+        negative_array[1, :, 3] = 0  # Create a tunnel
+        negative_array[3, :, 1] = 0  # Create a tunnel
+        negative_array[3, :, 3] = 0  # Create a tunnel
+
+        intermediate_array = np.ones((5, 5, 5), dtype=int)
+        intermediate_array[1, :, :] = 0  # Insert plane
+        intermediate_array[3, :, :] = 0  # Insert plane
+
+        positive_array = np.zeros((5, 5, 5), dtype=int)
+        positive_array[::2, ::2, ::2] = 1  # Isolated voxels
+
+        # plot
+        fig = plt.figure(figsize=(3, 9))
+        letters = ['a', 'b', 'c']
+
+        for i, array in enumerate([positive_array, intermediate_array,
+                                   negative_array]):
+            # array = 1-array
+            e = euler_number(array, connectivity=1)  # computer Euler number
+
+            ax = fig.add_subplot(3, 1, i+1, projection='3d')
+            ones = np.where(array == 1, True, False)
+            zeros = np.where(array == 1, False, True)
+            ax.voxels(ones, color='grey', edgecolor='black', lw=0.5,
+                      alpha=0.95)
+            ax.voxels(zeros, color='white', edgecolor='black', lw=0.5,
+                      alpha=0.15)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_zticks([])
+            ax.set_axis_off()
+            ax.set_title(f'{letters[i]}) χ: {round(e, 2)}')
+            ax.set_aspect('equal')
+
+        plt.tight_layout()
+        plt.savefig(r'../output/graphics/Euler_voxels.svg')
+        plt.savefig(r'../output/graphics/Euler_voxels.pdf')
         plt.close()
 
 
@@ -470,7 +733,6 @@ class parameters:
     def Jv_Palmstroem2000(self, spacings1, spacings2, spacings3,
                           n_random, tot_volume):
         '''computes volumetric joint count acc. to Palmstrøm (2000)'''
-        # TODO check if computation is correct!
         set1 = (1/spacings1).fillna(0)
         set2 = (1/spacings2).fillna(0)
         set3 = (1/spacings3).fillna(0)
@@ -576,18 +838,24 @@ class parameters:
 
         return Jn_s
 
-    def Minkowski(self, n_boxes, box_sizes):
+    def Minkowski(self, n_boxes: int, box_sizes: float) -> float:
+        '''compute the Minkowski–Bouligand dimension as a parameter for fractal
+        dimensions.
+        https://en.wikipedia.org/wiki/Minkowski%E2%80%93Bouligand_dimension'''
         N_ = np.log(n_boxes)
         eps_ = np.log(1/box_sizes)
         return np.polyfit(eps_, N_, 1)[0]
 
-    def scalar_p_image(self, arr1, arr2):
+    def scalar_p_image(self, arr1: np.array, arr2: np.array) -> np.array:
         '''function that computs the scalar product of 2 RGB images'''
         return arr1[:, :, 0] * arr2[:, :, 0] + arr1[:, :, 1] * arr2[:, :, 1] + arr1[:, :, 2] * arr2[:, :, 2]
 
-    def structural_complexity(self, data, lambda_=2, N=None, mode='image'):
-
-        if N == None:
+    def structural_complexity(self, data: np.array, lambda_: int = 2,
+                              N: int = None, mode: str = 'image') -> float:
+        '''function computes the structural complexity of raster data according
+        to Bagrov et al. (2020)
+        https://www.pnas.org/doi/10.1073/pnas.2004976117'''
+        if N is None:
             # compute max. possible split with given data resolution
             res = data.shape[0]
             counter = 0
@@ -601,15 +869,17 @@ class parameters:
         for _ in range(N):
             window_sizes.append(lambda_)
             lambda_ *= 2
-
+        # print(window_sizes)
         # collection of stack of coarsened raster data
         stack = [data]
 
         for i, step_size in enumerate(window_sizes):
             if mode == 'image':
-                data_c = block_reduce(data, (step_size, step_size, 1), np.mean)
+                data_c = block_reduce(data, (step_size, step_size, 1),
+                                      np.mean)
             elif mode == '3Dgrid':
-                data_c = block_reduce(data, (step_size, step_size, step_size), np.mean)
+                data_c = block_reduce(data, (step_size, step_size, step_size),
+                                      np.mean)
             else:
                 raise ValueError('mode not implemented')
 
@@ -638,3 +908,49 @@ class parameters:
         # compute structural complexity
         complexity = sum(overlaps)
         return complexity
+
+    def Shannon_Entropy(self, df: pd.DataFrame) -> np.array:
+        '''compute the information entropy after Shannon 1948 as
+        H = -sum(pk * log(pk))
+        https://en.wikipedia.org/wiki/Entropy_(information_theory)'''
+        counts = df[['n empty voxels at 0.05 [m]',
+                     'n disc. voxels at 0.05 [m]']].values
+        return entropy(counts, base=2, axis=1)
+
+    def compression_complexity(self, array):
+        flattened = array.flatten()
+        byte_data = flattened.tobytes()  # Convert to bytes for compression
+        compressed_data = zlib.compress(byte_data, level=-1)
+        return len(compressed_data) / len(byte_data)
+
+    def lacunarity(self, array: np.array, box_sizes: list,
+                   resolution: float) -> dict:
+        """
+        Computes lacunarity for a 3D binary array over different box sizes.
+        Parameters:
+        - array: 3D numpy array of binary values (0 and 1)
+        - box_sizes: List of integers representing the edge lengths of cubic
+        boxes
+        - resolution: edge size of boxes
+        Returns:
+        - lacunarity_results: Dictionary where keys are box sizes and values
+        are lacunarity
+        """
+        lacunarity_results = {}
+
+        for box_size in box_sizes:
+            # Apply a sliding window to compute mass within each box
+            footprint = np.ones((box_size, box_size, box_size))
+            mass = generic_filter(array, np.sum, footprint=footprint,
+                                  mode='reflect')
+            # Calculate mean and variance of the mass distribution
+            mean_mass = np.mean(mass)
+            variance_mass = np.var(mass)
+            # Compute lacunarity
+            if mean_mass > 0:  # Avoid division by zero
+                lacunarity = (variance_mass + mean_mass**2) / (mean_mass**2)
+            else:
+                lacunarity = np.nan  # Undefined if the mean mass is zero
+            size = f'{round(box_size*resolution, 2)} m'
+            lacunarity_results[size] = lacunarity
+        return lacunarity_results
