@@ -1,9 +1,6 @@
 # folder with old and very immature code
 old_other/
 
-# folder with frequently changing outputs such as graphics
-output/graphics/
-
 # folder with computed raster representations of PDD1
 rasters/
 
