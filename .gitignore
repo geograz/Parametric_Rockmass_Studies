@@ -1,7 +1,10 @@
 # folder with old and very immature code
 old_other/
 
-# folder with computed raster representations of PDD1
+# folder with original meshes of PDD1 - too large for Github => on Zenodo
+PDD1_Meshes/
+
+# folder with computed raster representations of PDD1 - too large for Github => on Zenodo
 rasters/
 
 src/__pycache__/

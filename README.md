@@ -12,24 +12,24 @@ This repository contains the code and generated data that is associated with the
 
 ## Publications
 The following publications have been produced as part of the Parametric Rock Mass Studies:
-- ERHARTER, Georg H. (2024) Rock Mass Structure Characterization Considering Finite and Folded Discontinuities: A Parametric Study. Rock Mechanics and Rock Engineering. https://doi.org/10.1007/s00603-024-03787-9
-- A second paper with the title "Is Complexity the Answer to the Continuum vs. Discontinuum Question in Rock Engineering?" by Georg Erharter and Davide Elmo was submitted to the journal Rock Mechanics and Rock Engineering in February 2025 and is currently under review.
+- ERHARTER Georg H. (2024) Rock Mass Structure Characterization Considering Finite and Folded Discontinuities: A Parametric Study. Rock Mechanics and Rock Engineering. https://doi.org/10.1007/s00603-024-03787-9
+- ERHARTER Georg H. and ELMO Davide (2025): Is Complexity the Answer to the Continuum vs. Discontinuum Question in Rock Engineering?. Rock Mechanics and Rock Engineering. STATUS MANUSCRIPT ACCEPTED
 
 
 ## Supplementary data
-All 5000 models of PDD1 were rastered at resolutions of 0.25, 0.2, 0.15, 0.1 and 0.05 m. Total = 25 000 rasters. Due to size limitations, the raster models that were created from PDD1 could not have been included in this repository directly. Instead the dataset can be found on **Zenodo** under this link: https://doi.org/10.5281/zenodo.15570244
+Due to size limitations on Github, large data has to be moved to other repositories. Two external datasets are currently connected to the repository:
 
-To use these models with the code, the folder with the models needs to be unzipped and copied into the top level of the repository (i.e. at the level of "src").
+- The original **Parametric Discontinuity Dataset 1 (PDD1)**: the dataset was created as part of Erharter (2024). It consists of 5000 meshes that comprise synthetic rock mass models in the form of 10 x 10 x 10 m cubes with discontinuities. It can be found on *Zenodo* under this link: https://doi.org/10.5281/zenodo.15835130
+- The **raster models of PDD1** that were created as part of Erharter and Elmo (2025). All 5000 models of PDD1 were rastered at resolutions of 0.25, 0.2, 0.15, 0.1 and 0.05 m. Total = 25 000 rasters. The dataset can be found on *Zenodo* under this link: https://doi.org/10.5281/zenodo.15570244
 
-Full Data reference:
-
-Erharter, G. (2025). Raster models for paper "Is Complexity the Answer to the Continuum vs. Discontinuum Question in Rock Engineering?" by G. Erharter and D. Elmo (1.0.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.15570244
+Full Data references:
+- Erharter, G. (2025). Parametric Discontinuity Dataset 1 (PDD1) (1.0.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.15835130
+- Erharter, G. (2025). Raster models for paper "Is Complexity the Answer to the Continuum vs. Discontinuum Question in Rock Engineering?" by G. Erharter and D. Elmo (1.0.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.15570244
 
 
 ## Repository structure
 ```
 Parametric_Rockmass_Studies
-├── combinations			- folder that contains all the 5000 individual samples of PDD1.
 ├── output			- folder that contains computational results of analyses of the samples
 │   ├── graphics			- folder that contains visualizations of the result analyses
 │   ├── df_samples.csv			- log file that indicates the processing state of raster samples of different resolutions
