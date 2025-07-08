@@ -17,7 +17,7 @@ The following publications have been produced as part of the Parametric Rock Mas
 
 
 ## Supplementary data
-Due to size limitations on Github, large data has to be moved to other repositories. Two external datasets are currently connected to the repository:
+Due to size limitations on Github, large data has to be moved to other repositories. Exemplary sample data from PDD1 sample with ID 151763271961 can be found in the folder 'sample_data'. Two external datasets are currently connected to the repository:
 
 - The original **Parametric Discontinuity Dataset 1 (PDD1)**: the dataset was created as part of Erharter (2024). It consists of 5000 meshes that comprise synthetic rock mass models in the form of 10 x 10 x 10 m cubes with discontinuities. It can be found on *Zenodo* under this link: https://doi.org/10.5281/zenodo.15835130
 - The **raster models of PDD1** that were created as part of Erharter and Elmo (2025). All 5000 models of PDD1 were rastered at resolutions of 0.25, 0.2, 0.15, 0.1 and 0.05 m. Total = 25 000 rasters. The dataset can be found on *Zenodo* under this link: https://doi.org/10.5281/zenodo.15570244
@@ -36,6 +36,7 @@ Parametric_Rockmass_Studies
 │   ├── PDD1_0.xlsx			- result excel file containing input parameters for PDD1 generation from Erharter (2024) and compiled Grasshopper analyses
 │   ├── PDD1_1.xlsx			- result excel file extended from PDD1_0.xlsx that also contains basic voxel data parameters
 │   ├── PDD1_2.xlsx			- final result excel file extended from PDD1_1.xlsx that also contains advanced complexity analyses parameters
+├── sample_data			- folder with exemplary synthetic rock mass models as meshes
 ├── src			- folder with Python scripts
 │   ├── A_compiler.py			- Script that compiles the recorded data from samples of the discrete discontinuity networks and creates excel files PDD1_0.xlsx and PDD1_1.xlsx for further processing.
 │   ├── B_analyzer.py			- Script that processes the compiled records of the discrete discontinuity dataset, computes additional and complexity parameters. Output: PDD1_2.xlsx

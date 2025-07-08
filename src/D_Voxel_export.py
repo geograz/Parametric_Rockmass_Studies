@@ -8,15 +8,21 @@ Code author: Dr. Georg H. Erharter
 Script that saves a mesh of a rastered sample. For visualization purposes only.
 """
 
+import os
+
 import trimesh
 
-RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]  # 3D grid resolution
+SAMPLE = 151763271961  # sample with ID to process
+RESOLUTIONS = [0.25, 0.2, 0.15, 0.1, 0.05]  # 3D voxel resolution
 
-sample = 151763271961
+# get the directory where the current python file is
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
 
 for resolution in RESOLUTIONS:
-    fp = fr"..\combinations\{sample}_discontinuities.stl"
+    fp = os.path.abspath(os.path.join(script_dir, '..', fr'sample_data\{SAMPLE}_discontinuities.stl'))
     discontinuity_mesh = trimesh.load_mesh(fp)
     discontinuity_voxels = discontinuity_mesh.voxelized(pitch=resolution)
     voxel_mesh = discontinuity_voxels.as_boxes()
-    voxel_mesh.export(fr'..\output\{sample}_{resolution}_voxel_mesh.stl')
+    fp = os.path.abspath(os.path.join(script_dir, '..', fr'sample_data\{SAMPLE}_{resolution}_voxel_mesh.stl'))
+    voxel_mesh.export(fp)
