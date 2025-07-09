@@ -7,13 +7,24 @@ Code author: Dr. Georg H. Erharter
 
 Script that compiles the recorded data from samples of the discrete
 discontinuity networks and creates one excel file for further processing.
+
+NOTE: this script goes back to the creation of the original PDD1. It was
+necessary to compile a single dataset of the mesh models and further metadata
+that was saved in Grasshopper. The mesh files are now all in Zenodo
+repositories and the Grasshopper Metadata in a zipped folder in this repo. This
+script consequently won't work in the current form.
+In future versions it will be removed.
+-> IF YOU WANT TO COMPILE PDD1 FROM SCRATCH, IT IS BEST TO DO THIS FROM THE
+2023 RELEASE OF THE REPOSITORY
+https://github.com/geograz/Parametric_Rockmass_Studies/releases/tag/v1.0.0
 """
+
+from os import listdir
+import pickle
 
 import gzip
 import numpy as np
-from os import listdir
 import pandas as pd
-import pickle
 from tqdm import tqdm
 
 

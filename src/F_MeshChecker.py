@@ -8,8 +8,9 @@ Code author: Dr. Georg H. Erharter
 Script that performs different checks of the generated meshes.
 """
 
-import trimesh
 from os import listdir
+
+import trimesh
 
 # get ids of all generated meshes
 ids = [c.split('_')[0] for c in listdir(r'../combinations') if 'discontinuities' in c]

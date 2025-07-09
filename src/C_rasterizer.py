@@ -9,13 +9,14 @@ Script that loads meshes and computes rasters at different resolution from them
 for further analyses. Does not include raster analyses - only generation.
 """
 
+from os import listdir
+
 import gzip
 import pickle
 import gc
 import numpy as np
 import pandas as pd
 import trimesh
-from os import listdir
 
 from X_library import parameters, utilities
 

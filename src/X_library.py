@@ -9,6 +9,9 @@ Script that contains a custom library with different classes of functions for
 math, general use (utilities), plotting and computation of parameters.
 """
 
+import os
+import zlib
+
 import numpy as np
 import pandas as pd
 from scipy.ndimage import generic_filter, label
@@ -21,13 +24,13 @@ from sklearn.preprocessing import MinMaxScaler
 import trimesh
 import matplotlib
 import matplotlib.gridspec as gridspec
-import zlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 
 
 class math:
+    '''class with mathematical functions'''
 
     def __init__(self):
         pass
@@ -54,6 +57,7 @@ class math:
 
 
 class utilities:
+    '''class with miscaleneous functions that don't fit anywhere else'''
 
     def __init__(self):
         self.sclr = MinMaxScaler()
@@ -140,8 +144,22 @@ class utilities:
 
         return labeled_array, num_features
 
+    def make_rel_fp(self, path: str, levels_up: int = 0) -> str:
+        '''function creates a relative filepath from the executing python file
+        location'''
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        if levels_up > 0:
+            lvls = ['..'] * levels_up
+            path_list = [script_dir] + lvls + [path]
+        else:
+            path_list = [script_dir, path]
+        return os.path.abspath(os.path.join(*path_list))
+
+
+
 
 class plotter(utilities):
+    '''class with plotting functions'''
 
     def __init__(self):
         self.label_map = {
@@ -718,6 +736,8 @@ class plotter(utilities):
 
 
 class parameters:
+    '''class with functions that compute rock engineering parameters of rock
+    mass structures'''
 
     def __init__(self):
         pass

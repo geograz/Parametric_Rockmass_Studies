@@ -9,10 +9,11 @@ Script that processes the compiled records of the discrete discontinuity
 dataset, computes new parameters and creates figures to visualize the dataset.
 """
 
+import pickle
+
 import gzip
 import numpy as np
 import pandas as pd
-import pickle
 from skimage.measure import euler_number
 from tqdm import tqdm
 
