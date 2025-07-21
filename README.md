@@ -13,7 +13,7 @@ This repository contains the code and generated data that is associated with the
 ## Publications
 The following publications have been produced as part of the Parametric Rock Mass Studies:
 - ERHARTER Georg H. (2024) Rock Mass Structure Characterization Considering Finite and Folded Discontinuities: A Parametric Study. Rock Mechanics and Rock Engineering. https://doi.org/10.1007/s00603-024-03787-9
-- ERHARTER Georg H. and ELMO Davide (2025): Is Complexity the Answer to the Continuum vs. Discontinuum Question in Rock Engineering?. Rock Mechanics and Rock Engineering. STATUS MANUSCRIPT ACCEPTED
+- ERHARTER, Georg H.; ELMO, Davide (2025): Is Complexity the Answer to the Continuum vs. Discontinuum Question in Rock Engineering? In Rock Mech Rock Engng. DOI: 10.1007/s00603-025-04777-1
 
 
 ## Supplementary data
